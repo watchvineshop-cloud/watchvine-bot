@@ -580,7 +580,82 @@ def webhook():
         )
         
         if not conversation:
-            # Check for image message (to be implemented)
+            # Check for image message
+            image_message = message_info.get('imageMessage')
+            
+            if image_message:
+                logger.info(f"📸 Image received from {phone_number}")
+                
+                # Extract image URL
+                image_url = image_message.get('url')
+                
+                if image_url:
+                    try:
+                        # Call image identifier service
+                        import requests
+                        
+                        image_identifier_url = "http://watchvine_image_identifier:8002/identify"
+                        
+                        response = requests.post(
+                            image_identifier_url,
+                            json={"image_url": image_url},
+                            timeout=30
+                        )
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            
+                            if result.get('status') == 'success':
+                                matches = result.get('matches', [])
+                                
+                                if matches:
+                                    logger.info(f"✅ Found {len(matches)} matching products")
+                                    
+                                    # Send matching products
+                                    success, total, sent = send_product_results(
+                                        phone_number, 
+                                        matches, 
+                                        "image search", 
+                                        start_index=0, 
+                                        batch_size=10
+                                    )
+                                    
+                                    if success:
+                                        conversation_manager.save_search_context(
+                                            phone_number, 
+                                            "image search", 
+                                            matches, 
+                                            sent_count=sent
+                                        )
+                                else:
+                                    send_whatsapp_message(
+                                        phone_number, 
+                                        "😔 Sorry, no matching watches found for this image. Try searching by brand name!"
+                                    )
+                            else:
+                                error_msg = result.get('message', 'Image processing failed')
+                                logger.error(f"Image identification error: {error_msg}")
+                                send_whatsapp_message(
+                                    phone_number,
+                                    "માફ કરશો, આ તસવીર પ્રોસેસ કરવામાં સમસ્યા છે.\n\nSorry, there was an issue processing the image."
+                                )
+                        else:
+                            logger.error(f"Image identifier service error: {response.status_code}")
+                            send_whatsapp_message(
+                                phone_number,
+                                "માફ કરશો, આ તસવીર પ્રોસેસ કરવામાં સમસ્યા છે.\n\nSorry, there was an issue processing the image."
+                            )
+                    
+                    except Exception as e:
+                        logger.error(f"Error calling image identifier: {e}")
+                        send_whatsapp_message(
+                            phone_number,
+                            "માફ કરશો, આ તસવીર પ્રોસેસ કરવામાં સમસ્યા છે.\n\nSorry, there was an issue processing the image."
+                        )
+                
+                return jsonify({"status": "success"}), 200
+            
+            # Non-text, non-image message
             logger.info(f"📸 Non-text message from {phone_number}")
             return jsonify({"status": "success"}), 200
         
