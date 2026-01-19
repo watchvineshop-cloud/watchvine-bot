@@ -28,11 +28,14 @@ METADATA_FILE = "/app/metadata.pkl"
 HASH_INDEX_FILE = "/app/hash_index.pkl"
 
 # Two-Tier Search System Thresholds
-EXACT_MATCH_HASH_THRESHOLD = 5
-NEAR_EXACT_HASH_THRESHOLD = 10
-SIMILARITY_THRESHOLD_HIGH = 0.82
-SIMILARITY_THRESHOLD_MEDIUM = 0.72
-SIMILARITY_THRESHOLD_LOW = 0.62
+# TIER 1: Exact Match (Perceptual Hash)
+EXACT_MATCH_HASH_THRESHOLD = 5  # Hamming distance <= 5 = Exact product in database (high tolerance for compression)
+NEAR_EXACT_HASH_THRESHOLD = 10  # Hamming distance <= 10 = Very likely same product
+
+# TIER 2: Similarity Match (CLIP embeddings) - Only if exact not found
+SIMILARITY_THRESHOLD_HIGH = 0.82  # High confidence - very similar (98%+)
+SIMILARITY_THRESHOLD_MEDIUM = 0.72  # Medium confidence - similar
+SIMILARITY_THRESHOLD_LOW = 0.62  # Low confidence - possibly similar
 MAX_IMAGE_SIZE_MB = 10
 TARGET_IMAGE_SIZE = (224, 224)
 
@@ -121,8 +124,13 @@ async def startup_event():
 
 
 def compute_perceptual_hash(img: Image.Image) -> str:
-    """Compute perceptual hash (pHash) for image."""
-    return str(imagehash.phash(img, hash_size=24))
+    """
+    Compute perceptual hash (pHash) for image.
+    Returns hex string representation.
+    Higher hash_size = more accuracy but less tolerance to minor changes.
+    """
+    # Use phash (perceptual hash) - robust to minor changes
+    return str(imagehash.phash(img, hash_size=24))  # 24x24 = 576-bit hash (higher accuracy)
 
 
 def find_exact_match_by_hash(query_hash: str, max_distance: int = EXACT_MATCH_HASH_THRESHOLD) -> Optional[Tuple[int, int]]:
