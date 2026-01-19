@@ -605,12 +605,36 @@ def webhook():
                             send_whatsapp_message(phone_number, "માફ કરશો, તસવીર ડાઉનલોડ કરવામાં સમસ્યા છે.\n\nSorry, couldn't download the image.")
                             return jsonify({"status": "error"}), 200
                         
+                        # Process and validate the image
+                        try:
+                            from PIL import Image
+                            
+                            # Open and validate the image
+                            image_bytes = io.BytesIO(img_response.content)
+                            img = Image.open(image_bytes)
+                            
+                            # Convert to RGB if needed
+                            if img.mode != 'RGB':
+                                img = img.convert('RGB')
+                            
+                            # Save to a new BytesIO as JPEG
+                            output_bytes = io.BytesIO()
+                            img.save(output_bytes, format='JPEG', quality=95)
+                            output_bytes.seek(0)
+                            
+                            logger.info(f"✅ Image processed: {img.size}, mode: {img.mode}")
+                            
+                        except Exception as e:
+                            logger.error(f"❌ Failed to process image: {e}")
+                            send_whatsapp_message(phone_number, "માફ કરશો, તસવીર પ્રોસેસ કરવામાં સમસ્યા છે.\n\nSorry, couldn't process the image format.")
+                            return jsonify({"status": "error"}), 200
+                        
                         # Call image identifier service
                         image_identifier_url = "http://watchvine_image_identifier:8002/search"
                         
-                        # Send image as multipart form file
+                        # Send processed image as multipart form file
                         files = {
-                            'file': ('watch_image.jpg', img_response.content, 'image/jpeg')
+                            'file': ('watch_image.jpg', output_bytes, 'image/jpeg')
                         }
                         
                         logger.info(f"📤 Sending image to identifier service...")
