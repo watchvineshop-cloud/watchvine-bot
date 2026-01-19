@@ -632,6 +632,8 @@ def webhook():
                 # If we have image bytes directly, skip base64 decoding
                 if 'image_bytes' in locals() and image_bytes:
                     try:
+                        import io
+                        import requests
                         from PIL import Image
                         
                         logger.info(f"📥 Processing image bytes directly...")
