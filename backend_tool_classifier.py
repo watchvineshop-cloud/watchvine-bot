@@ -358,19 +358,28 @@ TOOLS & OUTPUT RULES:
    - User specifically asks for "all photos" or "baki images" of a SPECIFIC single product.
    - Example: "Rolex GMT ke sare photo bhejo" -> {"tool": "send_all_images", "product_name": "Rolex GMT"}
 
-6. order_collection
-   JSON: {"tool": "order_collection", "order_data": {...}}
-   Use when:
-   - User shows interest in ordering a product ("I want this", "mane aa joiye", "order karvu che")
-   - User mentions a specific product name they want to order
-   - User asks about delivery, COD, or ordering process
-   - This triggers the order collection flow which will ask for: Name, Phone, Address
+6. save_data_to_google_sheet
+   JSON: {"tool": "save_data_to_google_sheet", "data": {...complete order data...}}
+   Use ONLY when:
+   - User has confirmed order with "yes" after seeing order summary
+   - All required fields are present and validated:
+     * To (receiver name)
+     * Name (customer name)
+     * Contact number (10 digits, not fake like 1111111111)
+     * Address (meaningful, 15+ characters)
+     * Area
+     * Near (landmark)
+     * City
+     * State
+     * Pin code (6 digits)
+     * Quantity (1-3, not bulk)
+     * Product name (from conversation history)
+     * Product URL (from conversation history)
    
-   Example responses:
-   - "I want to order this Rolex watch" → {"tool": "order_collection", "order_data": {"product_name": "Rolex watch"}}
-   - "mane aa fossil watch joiye" → {"tool": "order_collection", "order_data": {"product_name": "fossil watch"}}
-   - "order karvu che" → {"tool": "order_collection", "order_data": {}}
-   - "aa watch leva mangta" → {"tool": "order_collection", "order_data": {"product_name": "watch"}}
+   CRITICAL: Extract product name and URL from conversation history (last 10 messages)
+   
+   Example:
+   User confirmed order → {"tool": "save_data_to_google_sheet", "data": {"to": "Raj Patel", "name": "Amit Shah", "phone": "9876543210", "address": "123 Main Street", "area": "Bopal", "near": "Metro Station", "city": "Ahmedabad", "state": "Gujarat", "pincode": "380058", "quantity": 1, "product_name": "Rolex Submariner", "product_url": "https://watchvine01.cartpe.in/products/rolex-submariner"}}
 
 EXAMPLES (STUDY THESE VERY CAREFULLY):
 
@@ -462,17 +471,17 @@ Output: {"tool": "ai_chat"}
 Input: "Rolex GMT ni badhi images"
 Output: {"tool": "send_all_images", "product_name": "Rolex GMT"}
 
-Input: "I want to order this Fossil watch"
-Output: {"tool": "order_collection", "order_data": {"product_name": "Fossil watch"}}
+Input: "yes" (after order confirmation shown by AI)
+Output: {"tool": "save_data_to_google_sheet", "data": {extracted from conversation}}
 
-Input: "mane aa rolex joiye"
-Output: {"tool": "order_collection", "order_data": {"product_name": "rolex"}}
+Input: "I want to buy this watch" (user expressing interest)
+Output: {"tool": "ai_chat"} (AI will handle order collection)
 
-Input: "order karvu che"
-Output: {"tool": "order_collection", "order_data": {}}
+Input: "order karvu che" (user wants to order)
+Output: {"tool": "ai_chat"} (AI will ask for details)
 
-Input: "aa watch leva mangta"
-Output: {"tool": "order_collection", "order_data": {"product_name": "watch"}}
+Input: "mane aa watch joiye" (user wants to order)
+Output: {"tool": "ai_chat"} (AI will handle order collection)
 
 Input: "hello"
 Output: {"tool": "greeting"}
@@ -559,10 +568,13 @@ INTENT DETECTION PRIORITY:
    - Look for: "hello", "hi", "hey", "namaste", "namaskar", "good morning", "good evening"
    - Trigger greeting response with welcome message and available brands
 
-2. Order Interest (high priority - saves sale!)
-   - Look for: "I want this", "order", "buy", "purchase", "joiye", "leva mangta", "order karvu"
-   - Trigger order_collection to start collecting: Name, Phone, Address
-   - Even if user just says product name after seeing products → order_collection
+2. Order Confirmation (ONLY when user says "yes" after order summary)
+   - Look for: "yes", "confirm", "ha", "haan" AFTER order summary was shown
+   - Check conversation history for order details
+   - Extract all fields: To, Name, Contact, Address, Area, Near, City, State, Pincode, Quantity
+   - Extract product name and URL from history
+   - Trigger save_data_to_google_sheet with complete validated data
+   - If data incomplete or invalid → ai_chat (AI will ask again)
 
 2. Pagination/Show More (high priority - user is engaged!)
    - Look for: "yes", "show more", "next", "more", "okay", "ha", "haan", "dikha", "aur", "હા"

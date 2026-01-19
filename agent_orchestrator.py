@@ -185,9 +185,12 @@ class AgentOrchestrator:
             return ('ask_category_selection', {'product_type': product_type})
         
         elif tool == 'save_data_to_google_sheet':
-            # Backend AI decided to save order directly
+            # Backend AI detected order confirmation with complete validated data
             order_data = decision.get('data', {})
-            logger.info(f"💾 Backend AI extracted order data: {order_data}")
+            logger.info(f"💾 Backend AI extracted complete order data for saving")
+            logger.info(f"📦 Product: {order_data.get('product_name', 'N/A')}")
+            logger.info(f"👤 Customer: {order_data.get('name', 'N/A')}")
+            logger.info(f"📱 Phone: {order_data.get('phone', 'N/A')}")
             return ('save_order_direct', {'order_data': order_data})
         
         else:

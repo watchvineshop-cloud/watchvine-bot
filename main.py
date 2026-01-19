@@ -1084,11 +1084,7 @@ Type "yes" to confirm or provide corrections."""
             else:
                 send_whatsapp_message(phone_number, "🔍 No active search. Please search for watches first!")
         
-        elif tool == 'order_collection':
-            # Handle order collection flow
-            order_data = classification.get('order_data', {})
-            response = orchestrator.handle_order_collection(phone_number, conversation, order_data)
-            send_whatsapp_message(phone_number, response)
+        # order_collection tool removed - AI now handles order collection via ai_chat
         
         elif tool == 'greeting':
             # Send welcome message with brand list
