@@ -41,7 +41,7 @@ class BackendToolClassifier:
         else:
              self.model_name = env_model
              
-        self.cache_name = "watchvine_classifier_cache_v4_with_filters"  # Updated cache version to force refresh
+        self.cache_name = "watchvine_classifier_cache_v5_with_order_collection"  # Updated cache version to force refresh
         self.cached_content = None
         self.last_cache_update = 0
         self.CACHE_TTL = 1800 # 30 minutes refresh
@@ -351,12 +351,19 @@ TOOLS & OUTPUT RULES:
    - User specifically asks for "all photos" or "baki images" of a SPECIFIC single product.
    - Example: "Rolex GMT ke sare photo bhejo" -> {"tool": "send_all_images", "product_name": "Rolex GMT"}
 
-6. save_data_to_google_sheet
-   JSON: {"tool": "save_data_to_google_sheet", "data": {...}}
+6. order_collection
+   JSON: {"tool": "order_collection", "order_data": {...}}
    Use when:
-   - Customer explicitly confirms order ("Confirm", "Book it", "Order this")
-   - AND you have ALL details: Name, Phone, Address.
-   - If details missing, return {"tool": "ai_chat"} to ask for them.
+   - User shows interest in ordering a product ("I want this", "mane aa joiye", "order karvu che")
+   - User mentions a specific product name they want to order
+   - User asks about delivery, COD, or ordering process
+   - This triggers the order collection flow which will ask for: Name, Phone, Address
+   
+   Example responses:
+   - "I want to order this Rolex watch" → {"tool": "order_collection", "order_data": {"product_name": "Rolex watch"}}
+   - "mane aa fossil watch joiye" → {"tool": "order_collection", "order_data": {"product_name": "fossil watch"}}
+   - "order karvu che" → {"tool": "order_collection", "order_data": {}}
+   - "aa watch leva mangta" → {"tool": "order_collection", "order_data": {"product_name": "watch"}}
 
 EXAMPLES (STUDY THESE VERY CAREFULLY):
 
@@ -448,6 +455,18 @@ Output: {"tool": "ai_chat"}
 Input: "Rolex GMT ni badhi images"
 Output: {"tool": "send_all_images", "product_name": "Rolex GMT"}
 
+Input: "I want to order this Fossil watch"
+Output: {"tool": "order_collection", "order_data": {"product_name": "Fossil watch"}}
+
+Input: "mane aa rolex joiye"
+Output: {"tool": "order_collection", "order_data": {"product_name": "rolex"}}
+
+Input: "order karvu che"
+Output: {"tool": "order_collection", "order_data": {}}
+
+Input: "aa watch leva mangta"
+Output: {"tool": "order_collection", "order_data": {"product_name": "watch"}}
+
 Input: "muje sabhi dikhao" (Context: User asked for "man watches", no specific brand)
 Output: {"tool": "show_all_brands", "category_key": "mens_watch", "min_price": null, "max_price": null}
 Explanation: User wants to see ALL brands in the men's watch category
@@ -517,10 +536,10 @@ Always consider the full conversation context when making decisions:
 - Whether user has already seen products and is asking for more
 
 INTENT DETECTION PRIORITY:
-1. Order Confirmation (highest priority - saves sale!)
-   - Look for: "confirm", "book it", "order this", "yes place order"
-   - Ensure ALL required details are present before calling save_data_to_google_sheet
-   - If details missing → ai_chat (to collect remaining info)
+1. Order Interest (highest priority - saves sale!)
+   - Look for: "I want this", "order", "buy", "purchase", "joiye", "leva mangta", "order karvu"
+   - Trigger order_collection to start collecting: Name, Phone, Address
+   - Even if user just says product name after seeing products → order_collection
 
 2. Pagination/Show More (high priority - user is engaged!)
    - Look for: "yes", "show more", "next", "more", "okay", "ha", "haan", "dikha", "aur", "હા"
