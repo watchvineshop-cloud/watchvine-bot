@@ -587,13 +587,22 @@ def webhook():
                 logger.info(f"📸 Image received from {phone_number}")
                 logger.info(f"📋 Image message structure: {list(image_message.keys())}")
                 
-                # Evolution API provides base64 encoded image data directly
-                # Check for base64 data first (Evolution API v2)
-                base64_data = message_data.get('base64')
+                # Evolution API stores base64 in jpegThumbnail field
+                base64_data = None
                 
-                # Or try the imageMessage for base64
-                if not base64_data and image_message:
-                    base64_data = image_message.get('base64')
+                # Try jpegThumbnail (this is the base64 encoded thumbnail)
+                if image_message.get('jpegThumbnail'):
+                    base64_data = image_message['jpegThumbnail']
+                    logger.info(f"📋 Using jpegThumbnail (base64)")
+                
+                # Or try base64 field directly
+                elif message_data.get('base64'):
+                    base64_data = message_data['base64']
+                    logger.info(f"📋 Using base64 field")
+                
+                elif image_message.get('base64'):
+                    base64_data = image_message['base64']
+                    logger.info(f"📋 Using imageMessage base64")
                 
                 logger.info(f"📋 Has base64 data: {bool(base64_data)}")
                 
