@@ -3,12 +3,20 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including SSL/TLS libraries
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     curl \
+    ca-certificates \
+    openssl \
+    libssl-dev \
+    python3-certifi \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and install wheel before other packages
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel certifi
 
 # Copy requirements
 COPY requirements.txt .
