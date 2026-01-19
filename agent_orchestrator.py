@@ -578,7 +578,7 @@ class AgentOrchestrator:
         Args:
             phone_number: User's phone number
             user_message: Current user message
-            order_data: Initial order data from classifier (may contain product_name)
+            order_data: Initial order data from classifier (may contain product_name, product_url)
             
         Returns:
             Response asking for next required detail
@@ -587,20 +587,81 @@ class AgentOrchestrator:
             # Get or create order data for this user
             user_order = self.get_order_data(phone_number)
             
-            # If product name provided in order_data, save it
+            # Save product details from order_data (from classifier or user message)
             if order_data.get('product_name') and not user_order.product_name:
                 user_order.product_name = order_data['product_name']
-                logger.info(f"📦 Product saved: {user_order.product_name}")
+                logger.info(f"📦 Product name saved: {user_order.product_name}")
+            
+            if order_data.get('product_url') and not user_order.product_url:
+                user_order.product_url = order_data['product_url']
+                logger.info(f"🔗 Product URL saved: {user_order.product_url}")
+            
+            # Extract product details from user_message if not already saved
+            if not user_order.product_name or not user_order.product_url:
+                import re
+                # Check if message contains URL
+                url_pattern = r'(https?://[^\s]+)'
+                url_match = re.search(url_pattern, user_message)
+                
+                if url_match:
+                    extracted_url = url_match.group(1)
+                    if not user_order.product_url:
+                        user_order.product_url = extracted_url
+                        logger.info(f"🔗 Extracted URL from message: {extracted_url}")
+                    
+                    # Extract product name (text before URL)
+                    if not user_order.product_name:
+                        text_before_url = user_message[:url_match.start()].strip()
+                        # Remove common prefixes
+                        prefixes = ['i want to buy', 'i want', 'buy', 'order', 'mane joiye', 'joiye']
+                        for prefix in prefixes:
+                            if text_before_url.lower().startswith(prefix):
+                                text_before_url = text_before_url[len(prefix):].strip()
+                                break
+                        
+                        if text_before_url and len(text_before_url) > 3:
+                            user_order.product_name = text_before_url
+                            logger.info(f"📦 Extracted product name from message: {text_before_url}")
             
             # Set phone number from WhatsApp
             if not user_order.phone_number:
                 user_order.phone_number = phone_number
             
+            # Process user's current message to extract details if in COLLECTING_DETAILS state
+            if user_state and user_state.name == 'COLLECTING_DETAILS':
+                # User is providing details, try to extract them
+                if not user_order.customer_name:
+                    # This message should be the name
+                    name = user_message.strip()
+                    # Validate: name should be reasonable
+                    if len(name) > 2 and not name.startswith('http'):
+                        user_order.customer_name = name
+                        logger.info(f"👤 Customer name saved: {name}")
+                
+                elif not user_order.address:
+                    # This message should be the address
+                    address = user_message.strip()
+                    # Validate: address should be reasonably long
+                    if len(address) > 10:
+                        user_order.address = address
+                        logger.info(f"📍 Address saved: {address[:50]}...")
+            
             # Check what information is still needed
             if not user_order.customer_name:
                 # Ask for name
                 self.set_user_state(phone_number, ConversationState.COLLECTING_DETAILS)
-                return "મહેરબાની કરીને તમારું નામ આપો.\n\nPlease provide your name."
+                
+                # Include product info in first message if available
+                if user_order.product_name:
+                    return f"""✅ સરસ! તમે ઓર્ડર કરવા માંગો છો / Great! You want to order:
+
+📦 {user_order.product_name}
+{f'🔗 {user_order.product_url}' if user_order.product_url else ''}
+
+મહેરબાની કરીને તમારું નામ આપો.
+Please provide your name."""
+                else:
+                    return "મહેરબાની કરીને તમારું નામ આપો.\n\nPlease provide your name."
             
             elif not user_order.address:
                 # Ask for address
@@ -613,6 +674,7 @@ class AgentOrchestrator:
                 summary = f"""✅ તમારા ઓર્ડરની વિગતો / Your Order Details:
 
 📦 Product: {user_order.product_name or 'N/A'}
+{f'🔗 URL: {user_order.product_url}' if user_order.product_url else ''}
 👤 Name: {user_order.customer_name}
 📱 Phone: {user_order.phone_number}
 📍 Address: {user_order.address}
