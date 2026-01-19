@@ -608,9 +608,13 @@ def webhook():
                         # Call image identifier service
                         image_identifier_url = "http://watchvine_image_identifier:8002/search"
                         
-                        # Send image as file
+                        # Prepare image file for upload
+                        image_bytes = io.BytesIO(img_response.content)
+                        image_bytes.name = 'image.jpg'
+                        
+                        # Send image as file with correct parameter name
                         files = {
-                            'file': ('image.jpg', io.BytesIO(img_response.content), 'image/jpeg')
+                            'file': ('watch.jpg', image_bytes, 'image/jpeg')
                         }
                         
                         response = requests.post(
