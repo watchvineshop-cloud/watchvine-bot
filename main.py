@@ -590,10 +590,18 @@ def webhook():
                 # Evolution API stores base64 in jpegThumbnail field
                 base64_data = None
                 
-                # Try jpegThumbnail (this is the base64 encoded thumbnail)
+                # Try jpegThumbnail (can be dict or string)
                 if image_message.get('jpegThumbnail'):
-                    base64_data = image_message['jpegThumbnail']
-                    logger.info(f"📋 Using jpegThumbnail (base64)")
+                    thumbnail = image_message['jpegThumbnail']
+                    
+                    # If it's a dict, extract the data
+                    if isinstance(thumbnail, dict):
+                        base64_data = thumbnail.get('data') or thumbnail.get('base64') or thumbnail.get('buffer')
+                        logger.info(f"📋 jpegThumbnail is dict with keys: {list(thumbnail.keys())}")
+                    else:
+                        base64_data = thumbnail
+                    
+                    logger.info(f"📋 Using jpegThumbnail, type: {type(base64_data)}")
                 
                 # Or try base64 field directly
                 elif message_data.get('base64'):
