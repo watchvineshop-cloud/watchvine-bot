@@ -474,18 +474,15 @@ def save_batch_to_db(batch):
     try:
         MONGO_URI = os.getenv("MONGODB_ATLAS_URI") or os.getenv("MONGODB_URI") or os.getenv("MONGO_URI")
         
-        # Add SSL/TLS configuration for Atlas
+        # Use MongoDB Stable API for Atlas
+        from pymongo.server_api import ServerApi
+        
         if 'mongodb+srv://' in MONGO_URI:
-            try:
-                client = MongoClient(
-                    MONGO_URI,
-                    tls=True,
-                    tlsAllowInvalidCertificates=True,  # Allow invalid certs for Docker compatibility
-                    serverSelectionTimeoutMS=10000
-                )
-            except:
-                # Fallback without explicit TLS config
-                client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=10000)
+            client = MongoClient(
+                MONGO_URI,
+                server_api=ServerApi('1'),
+                serverSelectionTimeoutMS=10000
+            )
         else:
             client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
         db = client[DB_NAME]

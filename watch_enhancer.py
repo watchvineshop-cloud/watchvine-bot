@@ -22,18 +22,15 @@ class WatchEnhancer:
     def __init__(self, mongodb_uri: str, google_api_key: str = None, db_name: str = "watchvine_refined"):
         self.mongodb_uri = mongodb_uri
         
-        # Configure MongoDB client with SSL/TLS for Atlas
+        # Configure MongoDB client with Stable API for Atlas
+        from pymongo.server_api import ServerApi
+        
         if 'mongodb+srv://' in mongodb_uri:
-            try:
-                self.client = MongoClient(
-                    mongodb_uri,
-                    tls=True,
-                    tlsAllowInvalidCertificates=True,  # Allow invalid certs for Docker compatibility
-                    serverSelectionTimeoutMS=10000
-                )
-            except:
-                # Fallback without explicit TLS config
-                self.client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=10000)
+            self.client = MongoClient(
+                mongodb_uri,
+                server_api=ServerApi('1'),
+                serverSelectionTimeoutMS=10000
+            )
         else:
             self.client = MongoClient(mongodb_uri)
         self.db = self.client[db_name]

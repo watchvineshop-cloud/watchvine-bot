@@ -33,24 +33,18 @@ def step_1_check_and_scrape():
     logger.info("="*80)
     
     try:
-        # Add SSL/TLS configuration for Atlas compatibility
+        from pymongo.server_api import ServerApi
+        
+        # Add SSL/TLS configuration for Atlas compatibility using Stable API
         if MONGODB_URI and 'mongodb+srv://' in MONGODB_URI:
-            # Try with tlsAllowInvalidCertificates=True for compatibility
-            try:
-                client = MongoClient(
-                    MONGODB_URI,
-                    tls=True,
-                    tlsAllowInvalidCertificates=True,  # Allow invalid certs for Docker compatibility
-                    serverSelectionTimeoutMS=10000
-                )
-                client.admin.command('ping')
-                logger.info("✅ MongoDB connected (Atlas with TLS)")
-            except Exception as e:
-                logger.warning(f"⚠️  Atlas connection with TLS failed: {e}")
-                # Fallback: Try without explicit TLS config
-                client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=10000)
-                client.admin.command('ping')
-                logger.info("✅ MongoDB connected (Atlas fallback)")
+            # Use MongoDB Stable API for better compatibility
+            client = MongoClient(
+                MONGODB_URI,
+                server_api=ServerApi('1'),
+                serverSelectionTimeoutMS=10000
+            )
+            client.admin.command('ping')
+            logger.info("✅ MongoDB connected (Atlas with Stable API)")
         else:
             client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
             client.admin.command('ping')

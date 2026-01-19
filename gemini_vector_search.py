@@ -21,18 +21,15 @@ class GeminiVectorSearch:
         genai.configure(api_key=google_api_key)
         self.model = genai.GenerativeModel('gemini-pro')
         
-        # MongoDB setup with SSL/TLS configuration for Atlas
+        # MongoDB setup with Stable API for Atlas
+        from pymongo.server_api import ServerApi
+        
         if 'mongodb+srv://' in mongodb_uri:
-            try:
-                self.client = MongoClient(
-                    mongodb_uri,
-                    tls=True,
-                    tlsAllowInvalidCertificates=True,  # Allow invalid certs for Docker compatibility
-                    serverSelectionTimeoutMS=10000
-                )
-            except:
-                # Fallback without explicit TLS config
-                self.client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=10000)
+            self.client = MongoClient(
+                mongodb_uri,
+                server_api=ServerApi('1'),
+                serverSelectionTimeoutMS=10000
+            )
         else:
             self.client = MongoClient(mongodb_uri)
         
