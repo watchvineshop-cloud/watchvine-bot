@@ -585,33 +585,40 @@ def webhook():
             
             if image_message:
                 logger.info(f"📸 Image received from {phone_number}")
+                logger.info(f"📋 Image message structure: {list(image_message.keys())}")
                 
-                # Extract image URL
-                image_url = image_message.get('url')
+                # Evolution API provides base64 encoded image data directly
+                # Check for base64 data first (Evolution API v2)
+                base64_data = message_data.get('base64')
                 
-                if image_url:
+                # Or try the imageMessage for base64
+                if not base64_data and image_message:
+                    base64_data = image_message.get('base64')
+                
+                logger.info(f"📋 Has base64 data: {bool(base64_data)}")
+                
+                if base64_data:
                     try:
-                        # Download image from WhatsApp
-                        import requests
+                        import base64
                         import io
+                        from PIL import Image
                         
-                        logger.info(f"📥 Downloading image from: {image_url}")
+                        logger.info(f"📥 Decoding base64 image data...")
                         
-                        # Download the image
-                        img_response = requests.get(image_url, timeout=10)
-                        
-                        if img_response.status_code != 200:
-                            logger.error(f"Failed to download image: {img_response.status_code}")
-                            send_whatsapp_message(phone_number, "માફ કરશો, તસવીર ડાઉનલોડ કરવામાં સમસ્યા છે.\n\nSorry, couldn't download the image.")
+                        # Decode base64 to bytes
+                        try:
+                            image_bytes = base64.b64decode(base64_data)
+                            logger.info(f"✅ Decoded {len(image_bytes)} bytes")
+                        except Exception as e:
+                            logger.error(f"Failed to decode base64: {e}")
+                            send_whatsapp_message(phone_number, "માફ કરશો, તસવીર ડીકોડ કરવામાં સમસ્યા છે.\n\nSorry, couldn't decode the image.")
                             return jsonify({"status": "error"}), 200
                         
                         # Process and validate the image
                         try:
-                            from PIL import Image
-                            
                             # Open and validate the image
-                            image_bytes = io.BytesIO(img_response.content)
-                            img = Image.open(image_bytes)
+                            image_bytes_io = io.BytesIO(image_bytes)
+                            img = Image.open(image_bytes_io)
                             
                             # Convert to RGB if needed
                             if img.mode != 'RGB':
