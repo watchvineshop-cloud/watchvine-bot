@@ -591,30 +591,81 @@ def webhook():
                 
                 if image_url:
                     try:
-                        # Call image identifier service
+                        # Download image from WhatsApp
                         import requests
+                        import io
                         
-                        image_identifier_url = "http://watchvine_image_identifier:8002/identify"
+                        logger.info(f"📥 Downloading image from: {image_url}")
+                        
+                        # Download the image
+                        img_response = requests.get(image_url, timeout=10)
+                        
+                        if img_response.status_code != 200:
+                            logger.error(f"Failed to download image: {img_response.status_code}")
+                            send_whatsapp_message(phone_number, "માફ કરશો, તસવીર ડાઉનલોડ કરવામાં સમસ્યા છે.\n\nSorry, couldn't download the image.")
+                            return jsonify({"status": "error"}), 200
+                        
+                        # Call image identifier service
+                        image_identifier_url = "http://watchvine_image_identifier:8002/search"
+                        
+                        # Send image as file
+                        files = {
+                            'file': ('image.jpg', io.BytesIO(img_response.content), 'image/jpeg')
+                        }
                         
                         response = requests.post(
                             image_identifier_url,
-                            json={"image_url": image_url},
+                            files=files,
                             timeout=30
                         )
+                        
+                        logger.info(f"📊 Image identifier response: {response.status_code}")
                         
                         if response.status_code == 200:
                             result = response.json()
                             
-                            if result.get('status') == 'success':
+                            logger.info(f"✅ Image identification result: {result.get('status')}")
+                            
+                            # Check if exact match or similar products found
+                            if result.get('status') == 'exact_match':
+                                # Found exact product
+                                product_name = result.get('product_name')
+                                product_url = result.get('product_url')
+                                price = result.get('price', 'N/A')
+                                
+                                msg = f"""✅ આ ઘડિયાળ મળી ગઈ! / Watch Found!
+
+📦 {product_name}
+💰 Price: ₹{price}
+🔗 {product_url}
+
+શું તમે આ ઓર્ડર કરવા માંગો છો?
+Would you like to order this?"""
+                                
+                                send_whatsapp_message(phone_number, msg)
+                            
+                            elif result.get('status') == 'similar_matches':
+                                # Found similar products
                                 matches = result.get('matches', [])
                                 
                                 if matches:
-                                    logger.info(f"✅ Found {len(matches)} matching products")
+                                    logger.info(f"✅ Found {len(matches)} similar products")
+                                    
+                                    # Convert to product format expected by send_product_results
+                                    products = []
+                                    for match in matches:
+                                        products.append({
+                                            'name': match.get('product_name'),
+                                            'url': match.get('product_url'),
+                                            'price': match.get('price', 'N/A'),
+                                            'image_urls': [match.get('image_url', '')],
+                                            'similarity': match.get('similarity', 0)
+                                        })
                                     
                                     # Send matching products
                                     success, total, sent = send_product_results(
                                         phone_number, 
-                                        matches, 
+                                        products, 
                                         "image search", 
                                         start_index=0, 
                                         batch_size=10
@@ -624,20 +675,18 @@ def webhook():
                                         conversation_manager.save_search_context(
                                             phone_number, 
                                             "image search", 
-                                            matches, 
+                                            products, 
                                             sent_count=sent
                                         )
                                 else:
                                     send_whatsapp_message(
                                         phone_number, 
-                                        "😔 Sorry, no matching watches found for this image. Try searching by brand name!"
+                                        "😔 આ તસવીર માટે કોઈ મેચિંગ ઘડિયાળ મળી નથી.\n\nSorry, no matching watches found for this image. Try searching by brand name!"
                                     )
                             else:
-                                error_msg = result.get('message', 'Image processing failed')
-                                logger.error(f"Image identification error: {error_msg}")
                                 send_whatsapp_message(
-                                    phone_number,
-                                    "માફ કરશો, આ તસવીર પ્રોસેસ કરવામાં સમસ્યા છે.\n\nSorry, there was an issue processing the image."
+                                    phone_number, 
+                                    "😔 આ તસવીર માટે કોઈ મેચિંગ ઘડિયાળ મળી નથી.\n\nSorry, no matching watches found for this image. Try searching by brand name!"
                                 )
                         else:
                             logger.error(f"Image identifier service error: {response.status_code}")
