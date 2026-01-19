@@ -571,6 +571,67 @@ class AgentOrchestrator:
             logger.error(f"Error clearing MongoDB cache: {e}")
             logger.info(f"🧹 Cleared data for {phone_number} (Memory only)")
     
+    def handle_order_collection(self, phone_number: str, user_message: str, order_data: dict) -> str:
+        """
+        Handle order collection - asks for Name, Phone, Address step by step
+        
+        Args:
+            phone_number: User's phone number
+            user_message: Current user message
+            order_data: Initial order data from classifier (may contain product_name)
+            
+        Returns:
+            Response asking for next required detail
+        """
+        try:
+            # Get or create order data for this user
+            user_order = self.get_order_data(phone_number)
+            
+            # If product name provided in order_data, save it
+            if order_data.get('product_name') and not user_order.product_name:
+                user_order.product_name = order_data['product_name']
+                logger.info(f"📦 Product saved: {user_order.product_name}")
+            
+            # Set phone number from WhatsApp
+            if not user_order.phone_number:
+                user_order.phone_number = phone_number
+            
+            # Check what information is still needed
+            if not user_order.customer_name:
+                # Ask for name
+                self.set_user_state(phone_number, ConversationState.COLLECTING_DETAILS)
+                return "મહેરબાની કરીને તમારું નામ આપો.\n\nPlease provide your name."
+            
+            elif not user_order.address:
+                # Ask for address
+                return "તમારું સરનામું શું છે?\n\nPlease provide your delivery address."
+            
+            elif user_order.is_complete():
+                # All details collected, show summary and ask for confirmation
+                self.set_user_state(phone_number, ConversationState.AWAITING_FINAL_CONFIRMATION)
+                
+                summary = f"""✅ તમારા ઓર્ડરની વિગતો / Your Order Details:
+
+📦 Product: {user_order.product_name or 'N/A'}
+👤 Name: {user_order.customer_name}
+📱 Phone: {user_order.phone_number}
+📍 Address: {user_order.address}
+
+શું તમે આ ઓર્ડર કન્ફર્મ કરવા માંગો છો?
+Do you want to confirm this order?
+
+Type "yes" to confirm or provide corrections."""
+                
+                return summary
+            
+            else:
+                # Shouldn't reach here, but ask for missing info
+                return "કૃપા કરીને તમારી વિગતો આપો.\n\nPlease provide your details."
+                
+        except Exception as e:
+            logger.error(f"Error in order collection: {e}")
+            return "માફ કરશો, ઓર્ડર પ્રોસેસ કરવામાં સમસ્યા છે.\n\nSorry, there was an issue processing your order."
+    
     def handle_general_chat(self, phone_number: str, user_message: str, conversation_history: list) -> str:
         """
         Handle general chat using Gemini AI

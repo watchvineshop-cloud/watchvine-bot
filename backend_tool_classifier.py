@@ -41,7 +41,7 @@ class BackendToolClassifier:
         else:
              self.model_name = env_model
              
-        self.cache_name = "watchvine_classifier_cache_v5_with_order_collection"  # Updated cache version to force refresh
+        self.cache_name = "watchvine_classifier_cache_v6_with_greeting"  # Updated cache version to force refresh
         self.cached_content = None
         self.last_cache_update = 0
         self.CACHE_TTL = 1800 # 30 minutes refresh
@@ -167,17 +167,24 @@ Examples:
 
 TOOLS & OUTPUT RULES:
 
-1. ai_chat
+1. greeting
+   JSON: {"tool": "greeting"}
+   Use when:
+   - User greets: "hello", "hi", "hey", "namaste", "namaskar", "good morning", "good evening", "hola"
+   - First interaction with user
+   - Triggers welcome message with brand list in Gujarati
+
+2. ai_chat
    JSON: {"tool": "ai_chat"}
    Use when:
-   - User is greeting (Hi, Hello)
+   - General conversation, questions about delivery/returns
    - User asks general questions ("shop open?", "delivery time?")
    - User asks for categories without specific brand ("show watches", "bags dikhao")
    - User is just chatting
    - Search result pagination is complete ("All products shown")
    - User says "yes/no/okay" but there's NO pending search context
 
-2. show_more
+3. show_more
    JSON: {"tool": "show_more"}
    Use when:
    - User wants to see more products from CURRENT search
@@ -185,7 +192,7 @@ TOOLS & OUTPUT RULES:
    - ONLY if SEARCH INFO shows pending products (sent_count < total_found)
    - This is for continuing the SAME search, NOT starting a new one
    
-3. find_product
+4. find_product
    JSON: {"tool": "find_product", "keyword": "brand+type", "category_key": "mens_watch|womens_watch|...", "min_price": null, "max_price": null, "belt_type": null, "colors": null}
    Use when:
    - User asks for specific brand or product ("Rolex watch", "Gucci bag")
@@ -467,6 +474,18 @@ Output: {"tool": "order_collection", "order_data": {}}
 Input: "aa watch leva mangta"
 Output: {"tool": "order_collection", "order_data": {"product_name": "watch"}}
 
+Input: "hello"
+Output: {"tool": "greeting"}
+
+Input: "hi"
+Output: {"tool": "greeting"}
+
+Input: "namaste"
+Output: {"tool": "greeting"}
+
+Input: "good morning"
+Output: {"tool": "greeting"}
+
 Input: "muje sabhi dikhao" (Context: User asked for "man watches", no specific brand)
 Output: {"tool": "show_all_brands", "category_key": "mens_watch", "min_price": null, "max_price": null}
 Explanation: User wants to see ALL brands in the men's watch category
@@ -536,7 +555,11 @@ Always consider the full conversation context when making decisions:
 - Whether user has already seen products and is asking for more
 
 INTENT DETECTION PRIORITY:
-1. Order Interest (highest priority - saves sale!)
+1. Greeting (highest priority - first impression!)
+   - Look for: "hello", "hi", "hey", "namaste", "namaskar", "good morning", "good evening"
+   - Trigger greeting response with welcome message and available brands
+
+2. Order Interest (high priority - saves sale!)
    - Look for: "I want this", "order", "buy", "purchase", "joiye", "leva mangta", "order karvu"
    - Trigger order_collection to start collecting: Name, Phone, Address
    - Even if user just says product name after seeing products → order_collection

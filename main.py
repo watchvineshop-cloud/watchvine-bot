@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 
 # Import custom modules
-from agent_orchestrator import AgentOrchestrator
+from agent_orchestrator import AgentOrchestrator, ConversationState
 from backend_tool_classifier import BackendToolClassifier
 from google_sheets_handler import GoogleSheetsHandler, MongoOrderStorage
 from google_apps_script_handler import GoogleAppsScriptHandler
@@ -595,11 +595,93 @@ def webhook():
         # Get conversation history
         history = conversation_manager.get_conversation(phone_number, limit=10)
         
+        # Check if user is in the middle of order collection
+        user_state = orchestrator.get_user_state(phone_number)
+        
+        if user_state.name == 'COLLECTING_DETAILS' or user_state.name == 'AWAITING_FINAL_CONFIRMATION':
+            # User is providing order details (name, address) or confirming
+            logger.info(f"📝 User in order collection state: {user_state.value}")
+            
+            user_order = orchestrator.get_order_data(phone_number)
+            
+            # Check if user is confirming the order
+            if user_state.name == 'AWAITING_FINAL_CONFIRMATION':
+                if any(word in conversation.lower() for word in ['yes', 'confirm', 'ha', 'haan', 'ok', 'correct']):
+                    # Save order to Google Sheets
+                    try:
+                        user_order.order_id = orchestrator._generate_order_id(phone_number)
+                        user_order.timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        
+                        # Save to Google Sheets
+                        order_storage.save_order(user_order.to_dict())
+                        
+                        response = f"""✅ ઓર્ડર કન્ફર્મ થયો! / Order Confirmed!
+
+🎉 Order ID: {user_order.order_id}
+
+અમે તમને જલદી સંપર્ક કરીશું.
+We will contact you soon!
+
+આભાર! Thank you for shopping with WatchVine! 🛒"""
+                        
+                        send_whatsapp_message(phone_number, response)
+                        
+                        # Clear order data
+                        orchestrator.clear_user_data(phone_number)
+                        orchestrator.set_user_state(phone_number, orchestrator.ConversationState.ORDER_PLACED)
+                        
+                        return jsonify({"status": "success", "order_id": user_order.order_id}), 200
+                    
+                    except Exception as e:
+                        logger.error(f"Error saving order: {e}")
+                        error_msg = "માફ કરશો, ઓર્ડર સેવ કરવામાં સમસ્યા આવી.\n\nSorry, there was an issue saving your order. Please try again."
+                        send_whatsapp_message(phone_number, error_msg)
+                        return jsonify({"status": "error"}), 500
+                else:
+                    # User wants to make corrections
+                    response = "કૃપા કરીને સુધારેલી વિગતો આપો.\n\nPlease provide the corrected details."
+                    send_whatsapp_message(phone_number, response)
+                    return jsonify({"status": "success"}), 200
+            
+            # Extract name or address from user's response
+            if not user_order.customer_name:
+                # User is providing name
+                user_order.customer_name = conversation.strip()
+                logger.info(f"✅ Name collected: {user_order.customer_name}")
+                
+                # Ask for address next
+                response = "તમારું સરનામું શું છે?\n\nPlease provide your delivery address."
+                send_whatsapp_message(phone_number, response)
+                return jsonify({"status": "success"}), 200
+            
+            elif not user_order.address:
+                # User is providing address
+                user_order.address = conversation.strip()
+                logger.info(f"✅ Address collected: {user_order.address}")
+                
+                # All details collected, show summary
+                orchestrator.set_user_state(phone_number, orchestrator.ConversationState.AWAITING_FINAL_CONFIRMATION)
+                
+                summary = f"""✅ તમારા ઓર્ડરની વિગતો / Your Order Details:
+
+📦 Product: {user_order.product_name or 'N/A'}
+👤 Name: {user_order.customer_name}
+📱 Phone: {user_order.phone_number}
+📍 Address: {user_order.address}
+
+શું તમે આ ઓર્ડર કન્ફર્મ કરવા માંગો છો?
+Do you want to confirm this order?
+
+Type "yes" to confirm or provide corrections."""
+                
+                send_whatsapp_message(phone_number, summary)
+                return jsonify({"status": "success"}), 200
+        
         # Classify intent using backend AI
         classification = backend_classifier.analyze_and_classify(history, conversation, phone_number)
         tool = classification.get('tool', 'ai_chat')
         
-        logger.info(f"🤖 Classified as: {tool}")
+        logger.info(f"🔧 Classified as: {tool}")
         
         # Handle based on tool classification
         if tool == 'find_product' or tool == 'text_product_search':
@@ -679,6 +761,19 @@ def webhook():
             order_data = classification.get('order_data', {})
             response = orchestrator.handle_order_collection(phone_number, conversation, order_data)
             send_whatsapp_message(phone_number, response)
+        
+        elif tool == 'greeting':
+            # Send welcome message with brand list
+            greeting_message = """હેલો સર, Watchvine માં આપનું સ્વાગત છે! 🎉
+
+સર, આપને શું જરૂરિયાત છે?
+
+અમારી પાસે Fossil, Tissot, Armani, Tommy, Omega, Hublot, MK, Cartier, Tag Heuer, Rolex, Rado, AP અને Patek Philippe ઉપલબ્ધ છે.
+
+કઈ કંપનીની જોઈએ છે તે કહેશો તો હું ફોટો મોકલું આપું."""
+            
+            send_whatsapp_message(phone_number, greeting_message)
+            conversation_manager.save_message(phone_number, "assistant", greeting_message)
         
         else:
             # Default AI chat
