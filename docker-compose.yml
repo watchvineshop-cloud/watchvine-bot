@@ -1,0 +1,73 @@
+services:
+  # ============================================================================
+  # Main WatchVine Bot
+  # ============================================================================
+  main_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: watchvine_bot
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./logs:/app/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+      # Local MongoDB for conversations
+      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_DB=${MONGODB_DB:-watchvine_refined}
+      # Atlas MongoDB for products with vector search
+      - MONGODB_ATLAS_URI=${MONGODB_ATLAS_URI}
+      - MONGODB_ATLAS_DB=${MONGODB_ATLAS_DB:-watchvine_refined}
+      # Google AI
+      - Google_api=${Google_api}
+      - google_model=${google_model:-gemini-2.0-flash}
+      # WhatsApp
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
+      - INSTANCE_NAME=${INSTANCE_NAME:-shop-bot}
+      # Google Sheets
+      - GOOGLE_APPS_SCRIPT_URL=${GOOGLE_APPS_SCRIPT_URL}
+      - GOOGLE_APPS_SCRIPT_SECRET=${GOOGLE_APPS_SCRIPT_SECRET}
+      - PORT=5000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+  
+  # ============================================================================
+  # Image Identifier API - Port 8002
+  # ============================================================================
+  image_identifier:
+    build:
+      context: .
+      dockerfile: Dockerfile.image_identifier
+    container_name: watchvine_image_identifier
+    restart: always
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./logs:/app/logs
+      - image_index:/app  # Share index files
+    environment:
+      - PYTHONUNBUFFERED=1
+      # Atlas MongoDB for products
+      - MONGODB_URI=${MONGODB_ATLAS_URI:-${MONGODB_URI}}
+      - MONGODB_DB=${MONGODB_ATLAS_DB:-watchvine_refined}
+      - Google_api=${Google_api}
+      - IMAGE_IDENTIFIER_PORT=8002
+    depends_on:
+      - main_app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  image_index:
+    driver: local

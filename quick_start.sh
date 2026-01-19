@@ -1,0 +1,23 @@
+#!/bin/bash
+# Quick commands for manual operations
+
+echo "======================================================================"
+echo "  WATCHVINE MANUAL OPERATIONS"
+echo "======================================================================"
+echo ""
+echo "Run AI Enhancement (for new products):"
+echo "  docker exec watchvine_bot python watch_enhancer.py"
+echo ""
+echo "Create Image Search Index (10-15 min):"
+echo "  docker exec watchvine_bot python indexer.py"
+echo ""
+echo "Fix Empty Fields:"
+echo "  docker exec watchvine_bot python fix_empty_fields.py"
+echo ""
+echo "Remove Duplicates:"
+echo "  docker exec watchvine_bot python remove_duplicates.py"
+echo ""
+echo "Run Full Scraper:"
+echo "  docker exec watchvine_bot python fast_scraper.py"
+echo ""
+echo "======================================================================"
