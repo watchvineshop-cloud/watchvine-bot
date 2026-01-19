@@ -590,18 +590,33 @@ def webhook():
                 # Evolution API stores base64 in jpegThumbnail field
                 base64_data = None
                 
-                # Try jpegThumbnail (can be dict or string)
+                # Try jpegThumbnail (can be dict, list, or bytes)
                 if image_message.get('jpegThumbnail'):
                     thumbnail = image_message['jpegThumbnail']
                     
-                    # If it's a dict, extract the data
+                    # If it's a dict with byte array
                     if isinstance(thumbnail, dict):
-                        base64_data = thumbnail.get('data') or thumbnail.get('base64') or thumbnail.get('buffer')
-                        logger.info(f"📋 jpegThumbnail is dict with keys: {list(thumbnail.keys())}")
-                    else:
-                        base64_data = thumbnail
+                        # Convert dict of indexed bytes to bytes
+                        if all(k.isdigit() for k in thumbnail.keys()):
+                            byte_array = [thumbnail[str(i)] for i in range(len(thumbnail))]
+                            image_bytes = bytes(byte_array)
+                            logger.info(f"📋 Converted dict to {len(image_bytes)} bytes")
+                        else:
+                            base64_data = thumbnail.get('data') or thumbnail.get('base64')
+                            logger.info(f"📋 jpegThumbnail dict keys: {list(thumbnail.keys())[:5]}")
                     
-                    logger.info(f"📋 Using jpegThumbnail, type: {type(base64_data)}")
+                    # If it's already bytes
+                    elif isinstance(thumbnail, bytes):
+                        image_bytes = thumbnail
+                        logger.info(f"📋 jpegThumbnail is bytes: {len(image_bytes)} bytes")
+                    
+                    # If it's a string (base64)
+                    elif isinstance(thumbnail, str):
+                        base64_data = thumbnail
+                        logger.info(f"📋 jpegThumbnail is string (base64)")
+                    
+                    else:
+                        logger.error(f"❌ Unknown jpegThumbnail type: {type(thumbnail)}")
                 
                 # Or try base64 field directly
                 elif message_data.get('base64'):
@@ -612,9 +627,143 @@ def webhook():
                     base64_data = image_message['base64']
                     logger.info(f"📋 Using imageMessage base64")
                 
-                logger.info(f"📋 Has base64 data: {bool(base64_data)}")
+                logger.info(f"📋 Has base64 data: {bool(base64_data)}, Has image bytes: {bool('image_bytes' in locals())}")
                 
-                if base64_data:
+                # If we have image bytes directly, skip base64 decoding
+                if 'image_bytes' in locals() and image_bytes:
+                    try:
+                        from PIL import Image
+                        
+                        logger.info(f"📥 Processing image bytes directly...")
+                        
+                        # Process and validate the image
+                        try:
+                            # Open and validate the image
+                            image_bytes_io = io.BytesIO(image_bytes)
+                            img = Image.open(image_bytes_io)
+                            
+                            # Convert to RGB if needed
+                            if img.mode != 'RGB':
+                                img = img.convert('RGB')
+                            
+                            # Save to a new BytesIO as JPEG
+                            output_bytes = io.BytesIO()
+                            img.save(output_bytes, format='JPEG', quality=95)
+                            output_bytes.seek(0)
+                            
+                            logger.info(f"✅ Image processed: {img.size}, mode: {img.mode}")
+                            
+                        except Exception as e:
+                            logger.error(f"❌ Failed to process image bytes: {e}")
+                            send_whatsapp_message(phone_number, "માફ કરશો, તસવીર પ્રોસેસ કરવામાં સમસ્યા છે.\n\nSorry, couldn't process the image.")
+                            return jsonify({"status": "error"}), 200
+                        
+                        # Call image identifier service
+                        image_identifier_url = "http://watchvine_image_identifier:8002/search"
+                        
+                        # Send processed image as multipart form file
+                        files = {
+                            'file': ('watch_image.jpg', output_bytes, 'image/jpeg')
+                        }
+                        
+                        logger.info(f"📤 Sending image to identifier service...")
+                        
+                        response = requests.post(
+                            image_identifier_url,
+                            files=files,
+                            timeout=30
+                        )
+                        
+                        logger.info(f"📊 Image identifier response: {response.status_code}")
+                        
+                        if response.status_code != 200:
+                            logger.error(f"❌ Image identifier error details: {response.text}")
+                        
+                        # Handle response (same as below)
+                        if response.status_code == 200:
+                            result = response.json()
+                            
+                            logger.info(f"✅ Image identification result: {result.get('status')}")
+                            
+                            # Check if exact match or similar products found
+                            if result.get('status') == 'exact_match':
+                                # Found exact product
+                                product_name = result.get('product_name')
+                                product_url = result.get('product_url')
+                                price = result.get('price', 'N/A')
+                                
+                                msg = f"""✅ આ ઘડિયાળ મળી ગઈ! / Watch Found!
+
+📦 {product_name}
+💰 Price: ₹{price}
+🔗 {product_url}
+
+શું તમે આ ઓર્ડર કરવા માંગો છો?
+Would you like to order this?"""
+                                
+                                send_whatsapp_message(phone_number, msg)
+                            
+                            elif result.get('status') == 'similar_matches' or result.get('status') == 'match_found':
+                                # Found similar products
+                                top_5 = result.get('top_5_results', [])
+                                
+                                if top_5:
+                                    logger.info(f"✅ Found {len(top_5)} similar products")
+                                    
+                                    # Convert to product format
+                                    products = []
+                                    for match in top_5:
+                                        products.append({
+                                            'name': match.get('product_name'),
+                                            'url': match.get('product_url'),
+                                            'price': match.get('price', 'N/A'),
+                                            'image_urls': [match.get('image_url', '')],
+                                            'similarity': match.get('similarity_score', 0)
+                                        })
+                                    
+                                    # Send matching products
+                                    success, total, sent = send_product_results(
+                                        phone_number, 
+                                        products, 
+                                        "image search", 
+                                        start_index=0, 
+                                        batch_size=10
+                                    )
+                                    
+                                    if success:
+                                        conversation_manager.save_search_context(
+                                            phone_number, 
+                                            "image search", 
+                                            products, 
+                                            sent_count=sent
+                                        )
+                                else:
+                                    send_whatsapp_message(
+                                        phone_number, 
+                                        "😔 આ તસવીર માટે કોઈ મેચિંગ ઘડિયાળ મળી નથી.\n\nSorry, no matching watches found for this image. Try searching by brand name!"
+                                    )
+                            else:
+                                send_whatsapp_message(
+                                    phone_number, 
+                                    "😔 આ તસવીર માટે કોઈ મેચિંગ ઘડિયાળ મળી નથી.\n\nSorry, no matching watches found for this image. Try searching by brand name!"
+                                )
+                        else:
+                            logger.error(f"Image identifier service error: {response.status_code}")
+                            send_whatsapp_message(
+                                phone_number,
+                                "માફ કરશો, આ તસવીર પ્રોસેસ કરવામાં સમસ્યા છે.\n\nSorry, there was an issue processing the image."
+                            )
+                    
+                    except Exception as e:
+                        logger.error(f"Error calling image identifier: {e}")
+                        send_whatsapp_message(
+                            phone_number,
+                            "માફ કરશો, આ તસવીર પ્રોસેસ કરવામાં સમસ્યા છે.\n\nSorry, there was an issue processing the image."
+                        )
+                    
+                    return jsonify({"status": "success"}), 200
+                
+                elif base64_data:
                     try:
                         import base64
                         import io
