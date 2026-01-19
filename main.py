@@ -623,6 +623,9 @@ def webhook():
                         
                         logger.info(f"📊 Image identifier response: {response.status_code}")
                         
+                        if response.status_code != 200:
+                            logger.error(f"❌ Image identifier error details: {response.text}")
+                        
                         if response.status_code == 200:
                             result = response.json()
                             
