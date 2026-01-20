@@ -41,7 +41,7 @@ class BackendToolClassifier:
         else:
              self.model_name = env_model
              
-        self.cache_name = "watchvine_classifier_cache_v9_ai_store"  # Updated for AI-driven store queries
+        self.cache_name = "watchvine_classifier_cache_v10_photo_fix"  # Fixed: Don't greet when asking for photos
         self.cached_content = None
         self.last_cache_update = 0
         self.CACHE_TTL = 1800 # 30 minutes refresh
@@ -523,9 +523,19 @@ Output: {"tool": "greeting"}
 
 Input: "namaste"
 Output: {"tool": "greeting"}
+Explanation: Pure greeting, no product intent
 
 Input: "good morning"
 Output: {"tool": "greeting"}
+Explanation: Pure greeting, no product intent
+
+Input: "can i see photos?"
+Output: {"tool": "ai_chat"}
+Explanation: User wants to see products, NOT just greeting
+
+Input: "hello, watch dikhao"
+Output: {"tool": "find_product", "keyword": null}
+Explanation: Greeting + product request = prioritize product search
 
 Input: "muje sabhi dikhao" (Context: User asked for "man watches", no specific brand)
 Output: {"tool": "show_all_brands", "category_key": "mens_watch", "min_price": null, "max_price": null}
@@ -598,6 +608,12 @@ Always consider the full conversation context when making decisions:
 INTENT DETECTION PRIORITY:
 1. Greeting (highest priority - first impression!)
    - Look for: "hello", "hi", "hey", "namaste", "namaskar", "good morning", "good evening"
+   - CRITICAL: If message contains product-related words (watch, photo, image, dikhao, dekhvu), DO NOT use greeting
+   - Examples to AVOID greeting:
+     * "hello, rolex watch dikhao" → find_product (NOT greeting)
+     * "can i see photos?" → ai_chat (NOT greeting)
+     * "hi, watches dekhvu che?" → find_product (NOT greeting)
+   - Only use greeting for pure greetings with NO product intent
    - Trigger greeting response with welcome message and available brands
 
 2. Order Confirmation with Complete Details (CRITICAL - saves sale!)
