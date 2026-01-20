@@ -41,7 +41,7 @@ class BackendToolClassifier:
         else:
              self.model_name = env_model
              
-        self.cache_name = "watchvine_classifier_cache_v8_store_info"  # Updated for store_info tool
+        self.cache_name = "watchvine_classifier_cache_v9_ai_store"  # Updated for AI-driven store queries
         self.cached_content = None
         self.last_cache_update = 0
         self.CACHE_TTL = 1800 # 30 minutes refresh
@@ -343,24 +343,7 @@ TOOLS & OUTPUT RULES:
    - User specifically asks for "all photos" or "baki images" of a SPECIFIC single product.
    - Example: "Rolex GMT ke sare photo bhejo" -> {"tool": "send_all_images", "product_name": "Rolex GMT"}
 
-6. store_info
-   JSON: {"tool": "store_info"}
-   Use when:
-   - User asks about store location, address, timing, contact, map
-   - Keywords: "store", "location", "address", "kaha", "su che", "dukan", "shop", "timing", "khuli", "phone", "contact", "maps"
-   
-   DETECTION EXAMPLES (USE store_info):
-   - "store ni location su che?" ✓
-   - "dukan kaha hai?" ✓
-   - "timing su che?" ✓
-   - "store address batao" ✓
-   - "contact number?" ✓
-   - "where is your shop?" ✓
-   - "ahmedabad ma kaha che?" ✓
-   
-   CRITICAL: ALWAYS use store_info for location/store queries - NEVER use ai_chat
-
-7. save_data_to_google_sheet
+6. save_data_to_google_sheet
    JSON: {"tool": "save_data_to_google_sheet", "data": {...complete order data...}}
    Use ONLY when:
    - User has confirmed order with "yes" after seeing order summary
@@ -450,16 +433,13 @@ Input: "between 3000 and 8000 bags dikhao"
 Output: {"tool": "find_product_by_range", "category": "bags", "min_price": 3000, "max_price": 8000, "product_name": "₹3000-₹8000 bags"}
 
 Input: "store ni location su che?"
-Output: {"tool": "store_info"}
-
-Input: "dukan kaha hai?"
-Output: {"tool": "store_info"}
+Output: {"tool": "ai_chat"} (AI will answer from store details in system prompt)
 
 Input: "timing su che?"
-Output: {"tool": "store_info"}
+Output: {"tool": "ai_chat"} (AI will answer only timing)
 
 Input: "contact number?"
-Output: {"tool": "store_info"}
+Output: {"tool": "ai_chat"} (AI will answer only phone number)
 
 Input: "yes" (Context: Last search 'rolex watch', sent 10/50)
 Output: {"tool": "show_more"}
@@ -582,13 +562,7 @@ INTENT DETECTION PRIORITY:
    - Look for: "hello", "hi", "hey", "namaste", "namaskar", "good morning", "good evening"
    - Trigger greeting response with welcome message and available brands
 
-2. Store Information (CRITICAL - customer wants to visit!)
-   - Look for: "store", "location", "address", "dukan", "shop", "timing", "kaha", "su che", "contact", "phone", "maps"
-   - ALWAYS trigger store_info tool - NEVER use ai_chat for store queries
-   - This has HIGHEST priority after greeting
-   - Examples: "store ni location su che?", "timing su che?", "dukan kaha hai?"
-
-3. Order Confirmation with Complete Details (CRITICAL - saves sale!)
+2. Order Confirmation with Complete Details (CRITICAL - saves sale!)
    - ONLY trigger save_data_to_google_sheet when:
      * User says "yes" or "confirm" AFTER seeing order summary
      * AND conversation history contains ALL required fields in proper format:
