@@ -1099,6 +1099,76 @@ Type "yes" to confirm or provide corrections."""
             send_whatsapp_message(phone_number, greeting_message)
             conversation_manager.save_message(phone_number, "assistant", greeting_message)
         
+        elif tool == 'save_data_to_google_sheet':
+            # Backend AI detected order confirmation with complete data
+            logger.info("📋 Backend AI triggered: save_data_to_google_sheet")
+            
+            # Get order data from classification
+            order_data = classification.get('data', {})
+            
+            if not order_data:
+                logger.error("❌ No order data provided by backend AI")
+                error_msg = "માફ કરશો, ઓર્ડર ડેટા મળ્યો નહીં. કૃપા કરીને ફરીથી પ્રયાસ કરો.\n\nSorry, order data not found. Please try again."
+                send_whatsapp_message(phone_number, error_msg)
+                return jsonify({"status": "error", "message": "No order data"}), 400
+            
+            logger.info(f"📦 Order data received: {order_data}")
+            
+            # Generate Order ID
+            from datetime import datetime
+            order_id = f"WV{datetime.now().strftime('%d%m%Y%H%M')}"
+            
+            # Prepare order for Google Apps Script
+            order_payload = {
+                'order_id': order_id,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'customer_name': order_data.get('name', ''),
+                'phone_number': order_data.get('phone', '') or order_data.get('contact', ''),
+                'email': 'N/A',
+                'address': f"{order_data.get('address', '')}, {order_data.get('area', '')}, Near: {order_data.get('near', '')}, {order_data.get('city', '')}, {order_data.get('state', '')}, {order_data.get('pincode', '')}",
+                'product_name': order_data.get('product_name', ''),
+                'product_url': order_data.get('product_url', ''),
+                'quantity': order_data.get('quantity', 1),
+                'status': 'Pending',
+                'notes': f"Receiver: {order_data.get('to', 'N/A')}"
+            }
+            
+            logger.info(f"💾 Saving order to Google Sheets: {order_id}")
+            
+            try:
+                # Use Google Apps Script Handler
+                gas_handler = GoogleAppsScriptHandler()
+                success, message = gas_handler.save_order(order_payload)
+                
+                if success:
+                    logger.info(f"✅ Order saved successfully: {order_id}")
+                    
+                    # Send confirmation message
+                    confirmation_msg = f"""🎉 ઓર્ડર કન્ફર્મ થયો! / Order Confirmed!
+
+Order ID: {order_id}
+
+અમે તમને જલદી સંપર્ક કરીશું!
+We will contact you soon!
+
+આભાર! Thank you for shopping with WatchVine! 🛒✨"""
+                    
+                    send_whatsapp_message(phone_number, confirmation_msg)
+                    conversation_manager.save_message(phone_number, "assistant", confirmation_msg)
+                    
+                    return jsonify({"status": "success", "order_id": order_id}), 200
+                else:
+                    logger.error(f"❌ Failed to save order: {message}")
+                    error_msg = f"માફ કરશો, ઓર્ડર સેવ કરવામાં સમસ્યા આવી.\n\nSorry, there was an issue saving your order. Please try again.\n\nError: {message}"
+                    send_whatsapp_message(phone_number, error_msg)
+                    return jsonify({"status": "error", "message": message}), 500
+                    
+            except Exception as e:
+                logger.error(f"❌ Error saving order: {e}", exc_info=True)
+                error_msg = "માફ કરશો, ઓર્ડર સેવ કરવામાં સમસ્યા આવી.\n\nSorry, there was an issue saving your order. Please try again."
+                send_whatsapp_message(phone_number, error_msg)
+                return jsonify({"status": "error", "message": str(e)}), 500
+        
         else:
             # Default AI chat
             response = orchestrator.handle_general_chat(phone_number, conversation, history)
