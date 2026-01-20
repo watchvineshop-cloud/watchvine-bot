@@ -22,6 +22,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from pymongo import MongoClient
 from dotenv import load_dotenv
+import pytz
 
 # Import existing modules
 from fast_scraper import scrape_all_products
@@ -155,21 +156,30 @@ def run_nightly_update():
 def start_scheduler():
     """Start the APScheduler"""
     logger.info("🚀 Starting Nightly Scraper Scheduler")
-    logger.info("⏰ Scheduled to run every day at 12:00 AM (midnight)")
+    logger.info("⏰ Scheduled to run every day at 12:00 AM IST (India Standard Time)")
     
-    scheduler = BlockingScheduler()
+    # Import timezone support
+    from apscheduler.schedulers.blocking import BlockingScheduler
+    from apscheduler.triggers.cron import CronTrigger
+    from pytz import timezone
     
-    # Schedule job for 12 AM every day
+    # Set timezone to India Standard Time
+    ist = timezone('Asia/Kolkata')
+    
+    scheduler = BlockingScheduler(timezone=ist)
+    
+    # Schedule job for 12 AM IST every day
     scheduler.add_job(
         run_nightly_update,
-        trigger=CronTrigger(hour=0, minute=0),  # 12:00 AM
+        trigger=CronTrigger(hour=0, minute=0, timezone=ist),  # 12:00 AM IST
         id='nightly_scraper',
         name='Nightly Watch Database Update',
         replace_existing=True
     )
     
     logger.info("✅ Scheduler started successfully")
-    logger.info("📅 Next run: Tonight at 12:00 AM")
+    logger.info(f"⏰ Timezone: Asia/Kolkata (IST)")
+    logger.info("📅 Next run: Tonight at 12:00 AM IST")
     
     # For testing: Uncomment to run immediately
     # logger.info("🧪 Running test update immediately...")
