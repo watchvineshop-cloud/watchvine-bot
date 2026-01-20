@@ -1099,6 +1099,23 @@ Type "yes" to confirm or provide corrections."""
             send_whatsapp_message(phone_number, greeting_message)
             conversation_manager.save_message(phone_number, "assistant", greeting_message)
         
+        elif tool == 'store_info':
+            # User asking for store information
+            store_info_message = """અમારો સ્ટોર અહમદાબાદમાં છે! 🏬
+
+📍 *Location:* Bopal Haat Complex, Sector 4, Sun City, Ahmedabad
+
+⏰ *Timing:* 2:00 PM - 8:00 PM (Mon-Sun)
+📞 *Phone:* 9016220667 (આવ્યા પહેલા call કરી લેજો)
+
+🗺️ *Google Maps:* https://maps.app.goo.gl/miGV5wPVdXtdNgAN9?g_st=ac
+
+તમે ઘરે બેઠા પણ અમારી website થી order કરી શકો છો! 🛒
+Website: https://watchvine01.cartpe.in/"""
+            
+            send_whatsapp_message(phone_number, store_info_message)
+            conversation_manager.save_message(phone_number, "assistant", store_info_message)
+        
         else:
             # Default AI chat
             response = orchestrator.handle_general_chat(phone_number, conversation, history)

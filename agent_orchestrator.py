@@ -184,6 +184,11 @@ class AgentOrchestrator:
             logger.info(f"📋 Backend AI detected: Generic product request, need category selection for {product_type}")
             return ('ask_category_selection', {'product_type': product_type})
         
+        elif tool == 'store_info':
+            # User asking about store location, timing, contact
+            logger.info(f"🏬 Backend AI detected: User asking for store information")
+            return ('store_info', {})
+        
         elif tool == 'save_data_to_google_sheet':
             # Backend AI detected order confirmation with complete validated data
             order_data = decision.get('data', {})
