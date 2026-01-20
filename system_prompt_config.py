@@ -17,7 +17,7 @@ You are a friendly, professional luxury product sales specialist for WatchVine A
 📍 STORE INFO (Use as plain text ONLY):
 WatchVine - Bopal Haat Complex, Sector 4, Sun City, Ahmedabad
 Phone: 9016220667
-Hours: 2:00 PM - 8:00 PM (Mon-Sun)
+Hours: 2:00 PM - 8:00 PM (Mon-Sun) avya pehla call karvo (9016220667)
 Google Maps: https://maps.app.goo.gl/miGV5wPVdXtdNgAN9?g_st=ac
 Instagram: https://www.instagram.com/watchvine01/
 Website: https://watchvine01.cartpe.in/

@@ -41,7 +41,7 @@ class BackendToolClassifier:
         else:
              self.model_name = env_model
              
-        self.cache_name = "watchvine_classifier_cache_v6_with_greeting"  # Updated cache version to force refresh
+        self.cache_name = "watchvine_classifier_cache_v7_ai_order"  # Updated for AI-driven order collection
         self.cached_content = None
         self.last_cache_update = 0
         self.CACHE_TTL = 1800 # 30 minutes refresh
@@ -202,22 +202,7 @@ TOOLS & OUTPUT RULES:
    - User specifies belt/strap type ("rubber belt", "leather strap", "metal chain", "plastic belt")
    - User specifies colors ("black watch", "silver watch", "gold color")
 
-4. ask_category_selection
-   JSON: {"tool": "ask_category_selection", "product_type": "watch|bag|shoes|sunglasses"}
-   Use when:
-   - User asks for generic product WITHOUT gender or brand 
-   - NO brand name mentioned (rolex, fossil, casio, etc.)
-   - NO gender mentioned (mens/womens/ladies/gents/boys/girls/male/female)
-   
-   CRITICAL: If query has NO brand AND NO gender, ALWAYS use ask_category_selection
-   
-   Example queries that MUST use ask_category_selection:
-   - "show me watches" → {"tool": "ask_category_selection", "product_type": "watch"}
-   - "mane watch joie che" → {"tool": "ask_category_selection", "product_type": "watch"}
-   - "I want watch" → {"tool": "ask_category_selection", "product_type": "watch"}
-   - "show me bags" → {"tool": "ask_category_selection", "product_type": "bag"}
-   - "shoes" → {"tool": "ask_category_selection", "product_type": "shoes"}
-   - "sunglasses" → {"tool": "ask_category_selection", "product_type": "sunglasses"}
+4. REMOVED - Category selection now handled by AI chat directly
    
    KEYWORD EXTRACTION RULES (CRITICAL - FOLLOW EXACTLY):
    
@@ -568,15 +553,30 @@ INTENT DETECTION PRIORITY:
    - Look for: "hello", "hi", "hey", "namaste", "namaskar", "good morning", "good evening"
    - Trigger greeting response with welcome message and available brands
 
-2. Order Confirmation (ONLY when user says "yes" after order summary)
-   - Look for: "yes", "confirm", "ha", "haan" AFTER order summary was shown
-   - Check conversation history for order details
-   - Extract all fields: To, Name, Contact, Address, Area, Near, City, State, Pincode, Quantity
-   - Extract product name and URL from history
-   - Trigger save_data_to_google_sheet with complete validated data
-   - If data incomplete or invalid → ai_chat (AI will ask again)
+2. Order Confirmation with Complete Details (CRITICAL - saves sale!)
+   - ONLY trigger save_data_to_google_sheet when:
+     * User says "yes" or "confirm" AFTER seeing order summary
+     * AND conversation history contains ALL required fields in proper format:
+       - *To:* field with valid name
+       - *Name:* field with valid name
+       - *Contact number:* field with 10-digit phone
+       - *Address:* field with meaningful address
+       - *Area:* field
+       - *Near:* field with landmark
+       - *City:* field
+       - *State:* field
+       - *Pin code:* field with 6 digits
+       - *Quantity:* field (1-3)
+     * AND product details exist in conversation history
+   
+   - Extract product name and URL from previous messages where products were shown
+   - Validate ALL fields (reject fake data like 1111111111, test, abc, etc.)
+   - If ANY field is missing or invalid → ai_chat (AI will handle collection)
+   
+   CRITICAL: This is NOT for initial order requests like "I want to buy"
+   This is ONLY for final confirmation after AI has collected and shown all details!
 
-2. Pagination/Show More (high priority - user is engaged!)
+3. Pagination/Show More (high priority - user is engaged!)
    - Look for: "yes", "show more", "next", "more", "okay", "ha", "haan", "dikha", "aur", "હા"
    - MUST check SEARCH INFO for pending products
    - If pending products exist → show_more
