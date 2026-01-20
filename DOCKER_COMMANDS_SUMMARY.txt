@@ -1,0 +1,262 @@
+═══════════════════════════════════════════════════════════════════════════════
+🚀 COMPLETE DOCKER COMMANDS - NIGHTLY SCRAPER & NEW FIELDS IMPLEMENTATION
+═══════════════════════════════════════════════════════════════════════════════
+
+📦 PART 1: COPY ALL UPDATED FILES TO CONTAINER
+═══════════════════════════════════════════════════════════════════════════════
+
+# New file: Nightly scheduler
+docker cp nightly_scraper_scheduler.py watchvine_bot:/app/nightly_scraper_scheduler.py
+
+# Updated files: AI enhancement with new fields
+docker cp watch_enhancer.py watchvine_bot:/app/watch_enhancer.py
+
+# Updated files: Classifier with new field search
+docker cp backend_tool_classifier.py watchvine_bot:/app/backend_tool_classifier.py
+
+# Updated files: Scraper (already has sync logic)
+docker cp fast_scraper.py watchvine_bot:/app/fast_scraper.py
+
+# Previous fixes: Image identifier, main.py, etc.
+docker cp image_identifier_api.py watchvine_image_identifier:/app/image_identifier_api.py
+docker cp indexer.py watchvine_image_identifier:/app/indexer.py
+docker cp main.py watchvine_bot:/app/main.py
+docker cp agent_orchestrator.py watchvine_bot:/app/agent_orchestrator.py
+docker cp system_prompt_config.py watchvine_bot:/app/system_prompt_config.py
+
+═══════════════════════════════════════════════════════════════════════════════
+📋 PART 2: INSTALL DEPENDENCIES
+═══════════════════════════════════════════════════════════════════════════════
+
+# Install APScheduler for nightly scheduling
+docker exec watchvine_bot pip install apscheduler
+
+# Create logs directory
+docker exec watchvine_bot mkdir -p /app/logs
+
+═══════════════════════════════════════════════════════════════════════════════
+🔄 PART 3: RESTART CONTAINERS
+═══════════════════════════════════════════════════════════════════════════════
+
+# Restart image identifier container
+docker restart watchvine_image_identifier
+
+# Wait for image identifier to start
+sleep 10
+
+# Rebuild image index with new hash settings
+docker exec -d watchvine_image_identifier python indexer.py
+
+# Restart bot container
+docker restart watchvine_bot
+
+═══════════════════════════════════════════════════════════════════════════════
+🌙 PART 4: START NIGHTLY SCHEDULER
+═══════════════════════════════════════════════════════════════════════════════
+
+# Option A: Start as background process (Recommended for testing)
+docker exec -d watchvine_bot python nightly_scraper_scheduler.py
+
+# Option B: Test immediately (don't wait for midnight)
+# First, edit nightly_scraper_scheduler.py and uncomment test lines, then:
+docker exec watchvine_bot python nightly_scraper_scheduler.py
+
+═══════════════════════════════════════════════════════════════════════════════
+✅ PART 5: VERIFICATION COMMANDS
+═══════════════════════════════════════════════════════════════════════════════
+
+# 1. Check if scheduler is running
+docker exec watchvine_bot ps aux | grep nightly_scraper
+
+# 2. Check bot logs
+docker logs watchvine_bot --tail 50
+
+# 3. Check image identifier health
+curl http://localhost:8002/health
+
+# 4. Check scheduler logs (after it runs)
+docker exec watchvine_bot tail -100 /app/logs/nightly_scraper.log
+
+# 5. Verify new fields in database
+docker exec watchvine_bot python -c "from pymongo import MongoClient; import os; c = MongoClient(os.getenv('MONGODB_URI')); db = c['watchvine_refined']; print(f'Total products: {db.products.count_documents({})}'); print(f'With is_automatic: {db.products.count_documents({\"is_automatic\": {\"$exists\": True}})}'); print(f'With watch_type: {db.products.count_documents({\"watch_type\": {\"$exists\": True}})}')"
+
+# 6. Check if hash index files exist
+docker exec watchvine_image_identifier ls -lh /app/hash_index.pkl /app/metadata.pkl /app/vector_index.bin
+
+═══════════════════════════════════════════════════════════════════════════════
+🧪 PART 6: TESTING INDIVIDUAL COMPONENTS
+═══════════════════════════════════════════════════════════════════════════════
+
+# Test scraper only (watch products)
+docker exec watchvine_bot python -c "from fast_scraper import scrape_all_products; scrape_all_products(watch_only=True, clear_db=False, limit_per_category=5)"
+
+# Test AI enhancement only
+docker exec watchvine_bot python -c "from watch_enhancer import WatchEnhancer; import os; e = WatchEnhancer(os.getenv('MONGODB_URI'), os.getenv('Google_api')); e.enhance_all_watches(ai_vision=True, only_new=True); e.close()"
+
+# Test indexer only
+docker exec watchvine_image_identifier python indexer.py
+
+# Test search with new fields (after products are enhanced)
+# Send WhatsApp message: "automatic watch dikhao" or "sports watch chahiye"
+
+═══════════════════════════════════════════════════════════════════════════════
+📊 PART 7: MONITORING & LOGS
+═══════════════════════════════════════════════════════════════════════════════
+
+# Live nightly scraper logs
+docker exec watchvine_bot tail -f /app/logs/nightly_scraper.log
+
+# Live bot logs
+docker logs watchvine_bot -f
+
+# Live image identifier logs
+docker logs watchvine_image_identifier -f
+
+# Search for errors in nightly scraper
+docker exec watchvine_bot grep ERROR /app/logs/nightly_scraper.log
+
+# Check when next scraper run is scheduled
+docker exec watchvine_bot ps aux | grep nightly_scraper
+
+═══════════════════════════════════════════════════════════════════════════════
+🔧 PART 8: TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════════════════
+
+# If scheduler not running, restart it
+docker exec -d watchvine_bot python nightly_scraper_scheduler.py
+
+# If scraper fails, check logs
+docker exec watchvine_bot tail -100 /app/logs/nightly_scraper.log
+
+# If AI enhancement hits rate limit
+# Edit watch_enhancer.py line 456 and increase delay:
+# time.sleep(0.05)  # from 0.03
+
+# If indexer fails
+docker exec watchvine_image_identifier python indexer.py
+
+# Check all containers status
+docker ps -a
+
+# Restart all containers
+docker restart watchvine_bot watchvine_image_identifier
+
+═══════════════════════════════════════════════════════════════════════════════
+📝 PART 9: WHAT EACH FILE DOES
+═══════════════════════════════════════════════════════════════════════════════
+
+nightly_scraper_scheduler.py
+  - Runs at 12 AM every night
+  - Orchestrates: scrape → sync → enhance → index
+  - Logs to /app/logs/nightly_scraper.log
+
+watch_enhancer.py
+  - Extracts is_automatic from product name
+  - Extracts watch_type from product name and AI
+  - AI vision analysis with new fields
+  - Enhances products missing any fields
+
+backend_tool_classifier.py
+  - Updated to detect is_automatic queries
+  - Updated to detect watch_type queries
+  - Examples: "automatic watch", "sports watch"
+
+fast_scraper.py
+  - Scrapes all watches from website
+  - Compares with database
+  - Adds new products
+  - Removes sold out products
+
+image_identifier_api.py
+  - Fixed hash matching (hash_size=24, threshold=5)
+  - Database images return exact matches
+
+indexer.py
+  - Builds vector index for image search
+  - Creates hash_index.pkl for exact match
+  - Runs after AI enhancement
+
+main.py
+  - Fixed order saving to Google Sheets
+  - Proper return value handling
+
+agent_orchestrator.py
+  - Reads system_prompt_config.py properly
+  - Handles general chat with full context
+
+system_prompt_config.py
+  - AI-driven order collection
+  - Store information (physical + online)
+  - Delivery options (COD, PREPAID, OPEN BOX)
+
+═══════════════════════════════════════════════════════════════════════════════
+🎯 NEW FEATURES SUMMARY
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ Nightly automated scraper (12 AM daily)
+✅ Database sync (add new, remove sold out)
+✅ AI enhancement for missing fields
+✅ New field: is_automatic (automatic/mechanical watch detection)
+✅ New field: watch_type (sports/diving/professional/luxury/etc.)
+✅ Backend search supports new fields
+✅ Image identifier exact match (hash-based)
+✅ Order collection saves to Google Sheets
+✅ AI reads system prompt properly
+✅ Store information correct (physical + online)
+
+═══════════════════════════════════════════════════════════════════════════════
+📞 MONGODB ATLAS VECTOR SEARCH (ONE-TIME SETUP)
+═══════════════════════════════════════════════════════════════════════════════
+
+⚠️ IMPORTANT: If you want to search by new fields (is_automatic, watch_type),
+you need to update the Atlas Search Index ONCE:
+
+1. Go to MongoDB Atlas Dashboard
+2. Database → Search → Your Index
+3. Edit Index Definition
+4. Add these fields to your existing index:
+
+{
+  "mappings": {
+    "dynamic": false,
+    "fields": {
+      ...existing fields...,
+      "is_automatic": {
+        "type": "boolean"
+      },
+      "watch_type": {
+        "type": "string"
+      }
+    }
+  }
+}
+
+5. Save → Index rebuilds automatically (5-10 minutes)
+
+After this ONE-TIME update:
+- New documents automatically indexed
+- No manual indexing needed when adding products
+
+═══════════════════════════════════════════════════════════════════════════════
+🎉 ALL DONE! SYSTEM IS NOW FULLY AUTOMATED
+═══════════════════════════════════════════════════════════════════════════════
+
+Next steps:
+1. ✅ Copy all files (see PART 1)
+2. ✅ Install dependencies (see PART 2)
+3. ✅ Restart containers (see PART 3)
+4. ✅ Start scheduler (see PART 4)
+5. ✅ Verify everything works (see PART 5)
+6. ✅ Update MongoDB Atlas index if needed (see above)
+7. 🌙 Wait for midnight or test immediately
+8. 📊 Monitor logs to ensure success
+
+Your system will now:
+- Update database every night at 12 AM
+- Add new products from website
+- Remove sold out products
+- AI enhance all new products
+- Rebuild image search index
+- Be ready for customers each morning!
+
+═══════════════════════════════════════════════════════════════════════════════

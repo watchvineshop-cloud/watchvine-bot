@@ -1138,7 +1138,7 @@ Type "yes" to confirm or provide corrections."""
             try:
                 # Use Google Apps Script Handler
                 gas_handler = GoogleAppsScriptHandler()
-                success, message = gas_handler.save_order(order_payload)
+                success = gas_handler.save_order(order_payload)
                 
                 if success:
                     logger.info(f"✅ Order saved successfully: {order_id}")
@@ -1158,10 +1158,10 @@ We will contact you soon!
                     
                     return jsonify({"status": "success", "order_id": order_id}), 200
                 else:
-                    logger.error(f"❌ Failed to save order: {message}")
-                    error_msg = f"માફ કરશો, ઓર્ડર સેવ કરવામાં સમસ્યા આવી.\n\nSorry, there was an issue saving your order. Please try again.\n\nError: {message}"
+                    logger.error(f"❌ Failed to save order to Google Sheets")
+                    error_msg = f"માફ કરશો, ઓર્ડર સેવ કરવામાં સમસ્યા આવી.\n\nSorry, there was an issue saving your order. Please try again."
                     send_whatsapp_message(phone_number, error_msg)
-                    return jsonify({"status": "error", "message": message}), 500
+                    return jsonify({"status": "error", "message": "Failed to save order"}), 500
                     
             except Exception as e:
                 logger.error(f"❌ Error saving order: {e}", exc_info=True)

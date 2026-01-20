@@ -202,23 +202,39 @@ class WatchEnhancer:
         except:
             return "Unknown"
     
-    def analyze_watch_image(self, image_url: str, max_retries: int = 3) -> Optional[Dict]:
-        """Use Gemini Vision to analyze watch image and extract details with retry logic"""
+    def analyze_watch_image(self, image_url: str, product_name: str = "", max_retries: int = 3) -> Optional[Dict]:
+        """Use Gemini Vision to analyze watch image and extract details with retry logic
+        
+        Args:
+            image_url: URL of the watch image
+            product_name: Product name to help determine if automatic
+            max_retries: Number of retry attempts
+        """
         if not self.vision_model:
             return None
         
         for attempt in range(max_retries):
             try:
-                # Prompt for detailed watch analysis
-                prompt = """Analyze this watch image and provide the following details in JSON format:
-{
+                # Enhanced prompt for detailed watch analysis including new fields
+                prompt = f"""Analyze this watch image and product name: "{product_name}"
+
+Provide the following details in JSON format:
+{{
     "dial_color": "color of the watch face/dial",
     "strap_material": "leather/metal/rubber/silicone/fabric",
     "strap_color": "color of the strap/bracelet",
     "watch_type": "analog/digital/smart/hybrid",
     "case_material": "stainless steel/gold/titanium/plastic/etc",
-    "design_elements": ["list of notable design features like chronograph, date window, etc"]
-}
+    "design_elements": ["list of notable design features like chronograph, date window, etc"],
+    "is_automatic": "true/false - Is this an automatic/self-winding watch? Check product name for keywords: automatic, self-winding, auto, mechanical. If not mentioned, analyze if it looks like a mechanical/automatic watch",
+    "watch_style_category": "Choose ONE from: professional/luxury/sports/casual/fashion/dress/diving/aviation/racing/vintage/modern/smartwatch"
+}}
+
+IMPORTANT for is_automatic:
+- Look for keywords in product name: "automatic", "self-winding", "mechanical", "auto"
+- If name mentions "quartz" or "battery", it's NOT automatic
+- High-end luxury watches are often automatic
+- Smart watches are NOT automatic
 
 Provide only the JSON, no additional text."""
                 
@@ -278,6 +294,69 @@ Provide only the JSON, no additional text."""
         
         return None
     
+    def extract_is_automatic_from_name(self, name: str) -> bool:
+        """Extract if watch is automatic from product name"""
+        name_lower = name.lower()
+        
+        # Automatic indicators
+        automatic_keywords = ['automatic', 'self-winding', 'self winding', 'auto', 'mechanical', 'kinetic']
+        quartz_keywords = ['quartz', 'battery', 'digital']
+        
+        # Check for automatic keywords
+        for keyword in automatic_keywords:
+            if keyword in name_lower:
+                return True
+        
+        # Check for quartz/battery (not automatic)
+        for keyword in quartz_keywords:
+            if keyword in name_lower:
+                return False
+        
+        # Default to False if not specified
+        return False
+    
+    def extract_watch_style_category(self, name: str, styles: List[str]) -> str:
+        """Determine watch style category from name and extracted styles"""
+        name_lower = name.lower()
+        
+        # Priority-based categorization
+        if any(word in name_lower for word in ['smart', 'fitness', 'digital']):
+            return 'smartwatch'
+        elif any(word in name_lower for word in ['dive', 'diver', 'diving', 'submariner']):
+            return 'diving'
+        elif any(word in name_lower for word in ['pilot', 'aviation', 'aviator', 'flight']):
+            return 'aviation'
+        elif any(word in name_lower for word in ['racing', 'race', 'speedmaster', 'daytona']):
+            return 'racing'
+        elif any(word in name_lower for word in ['sport', 'sporty', 'athletic']):
+            return 'sports'
+        elif any(word in name_lower for word in ['dress', 'formal', 'business', 'elegant']):
+            return 'dress'
+        elif any(word in name_lower for word in ['vintage', 'classic', 'heritage']):
+            return 'vintage'
+        elif any(word in name_lower for word in ['luxury', 'prestige', 'haute']):
+            return 'luxury'
+        elif any(word in name_lower for word in ['professional', 'executive']):
+            return 'professional'
+        elif any(word in name_lower for word in ['casual', 'everyday']):
+            return 'casual'
+        elif any(word in name_lower for word in ['fashion', 'trendy', 'style']):
+            return 'fashion'
+        elif any(word in name_lower for word in ['modern', 'contemporary']):
+            return 'modern'
+        else:
+            # Default based on price range
+            try:
+                price = float(product.get('price', '0'))
+                if price > 10000:
+                    return 'luxury'
+                elif price > 5000:
+                    return 'professional'
+                else:
+                    return 'casual'
+            except:
+                return 'casual'
+    
     def enhance_watch_product(self, product: Dict) -> Dict:
         """Enhance a single watch product with extracted fields"""
         name = product.get('name', '')
@@ -299,9 +378,13 @@ Provide only the JSON, no additional text."""
         enhanced_product['price_range'] = self.extract_price_range(price)
         enhanced_product['enhanced_at'] = datetime.now().isoformat()
         
+        # NEW FIELDS: Extract from product name
+        enhanced_product['is_automatic'] = self.extract_is_automatic_from_name(name)
+        enhanced_product['watch_type'] = self.extract_watch_style_category(name, enhanced_product['styles'])
+        
         # AI Vision Analysis (if image available and not already analyzed)
         if image_urls and self.vision_model and 'ai_analysis' not in enhanced_product:
-            ai_details = self.analyze_watch_image(image_urls[0])
+            ai_details = self.analyze_watch_image(image_urls[0], product_name=name)
             if ai_details:
                 enhanced_product['ai_analysis'] = {
                     "analyzed_at": datetime.now().isoformat(),
@@ -335,10 +418,23 @@ Provide only the JSON, no additional text."""
                         enhanced_product['materials'].append(case_material.title())
                 
                 # Add watch type to styles
-                watch_type = ai_details.get('watch_type', '').strip()
-                if watch_type and watch_type.lower() not in ['unknown', 'n/a', 'none']:
-                    if watch_type.title() not in enhanced_product['styles']:
-                        enhanced_product['styles'].append(watch_type.title())
+                watch_type_ai = ai_details.get('watch_type', '').strip()
+                if watch_type_ai and watch_type_ai.lower() not in ['unknown', 'n/a', 'none']:
+                    if watch_type_ai.title() not in enhanced_product['styles']:
+                        enhanced_product['styles'].append(watch_type_ai.title())
+                
+                # Update is_automatic from AI if available
+                is_automatic_ai = ai_details.get('is_automatic', '').strip().lower()
+                if is_automatic_ai in ['true', 'yes', '1']:
+                    enhanced_product['is_automatic'] = True
+                elif is_automatic_ai in ['false', 'no', '0']:
+                    enhanced_product['is_automatic'] = False
+                # If AI says automatic, override name-based detection
+                
+                # Update watch_type from AI style category if available
+                watch_style_category = ai_details.get('watch_style_category', '').strip().lower()
+                if watch_style_category and watch_style_category not in ['unknown', 'n/a', 'none']:
+                    enhanced_product['watch_type'] = watch_style_category
                 
                 # Determine belt type from AI analysis
                 strap_material_lower = strap_material.lower()

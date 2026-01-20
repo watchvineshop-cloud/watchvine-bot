@@ -290,6 +290,28 @@ TOOLS & OUTPUT RULES:
    - "silver and gold" -> {"colors": ["Silver", "Gold"]}
    - "blue color" -> {"colors": ["Blue"]}
    - No color mentioned -> {"colors": null}
+   
+   NEW FIELDS - AUTOMATIC WATCH DETECTION:
+   Extract if user wants automatic watch:
+   - "automatic watch" -> {"is_automatic": true}
+   - "self-winding" -> {"is_automatic": true}
+   - "mechanical watch" -> {"is_automatic": true}
+   - "quartz watch" -> {"is_automatic": false}
+   - Not mentioned -> {"is_automatic": null}
+   
+   NEW FIELDS - WATCH TYPE/STYLE DETECTION:
+   Extract watch style category from user message:
+   - "sports watch" -> {"watch_type": "sports"}
+   - "formal watch" -> {"watch_type": "dress"}
+   - "diving watch" -> {"watch_type": "diving"}
+   - "professional watch" -> {"watch_type": "professional"}
+   - "casual watch" -> {"watch_type": "casual"}
+   - "luxury watch" -> {"watch_type": "luxury"}
+   - "smartwatch" -> {"watch_type": "smartwatch"}
+   - Not mentioned -> {"watch_type": null}
+   
+   Available watch_type values:
+   - sports, dress, diving, aviation, racing, professional, casual, luxury, fashion, vintage, modern, smartwatch
 
 3. find_product_by_range (PRIORITY #1 FOR PRICE RANGES!)
    JSON: {"tool": "find_product_by_range", "category": "watches", "min_price": 2000, "max_price": 2500, "product_name": "₹2000-₹2500 watches"}
@@ -378,6 +400,22 @@ Explanation: Found brand "rolex", returned ONLY "rolex". Ignored "muje", "chahiy
 
 Input: "rolex ladies watch dikhao"
 Output: {"tool": "find_product", "keyword": "rolex", "category_key": "womens_watch", "min_price": null, "max_price": null}
+
+Input: "automatic watch dikhao"
+Output: {"tool": "find_product", "keyword": null, "category_key": "mens_watch", "min_price": null, "max_price": null, "is_automatic": true}
+Explanation: User wants automatic watches, no specific brand
+
+Input: "sports watch chahiye"
+Output: {"tool": "find_product", "keyword": null, "category_key": "mens_watch", "min_price": null, "max_price": null, "watch_type": "sports"}
+Explanation: User wants sports style watch, no specific brand
+
+Input: "rolex automatic watch"
+Output: {"tool": "find_product", "keyword": "rolex", "category_key": "mens_watch", "min_price": null, "max_price": null, "is_automatic": true}
+Explanation: User wants automatic Rolex watches
+
+Input: "diving watch under 5000"
+Output: {"tool": "find_product", "keyword": null, "category_key": "mens_watch", "min_price": null, "max_price": 5000, "watch_type": "diving"}
+Explanation: Diving watch with max price, no specific brand
 Explanation: Brand "rolex" + gender "ladies" = womens_watch
 
 Input: "fossil ke gents watch"
