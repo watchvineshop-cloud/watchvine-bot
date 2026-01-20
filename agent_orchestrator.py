@@ -699,7 +699,7 @@ Type "yes" to confirm or provide corrections."""
     
     def handle_general_chat(self, phone_number: str, user_message: str, conversation_history: list) -> str:
         """
-        Handle general chat using Gemini AI
+        Handle general chat using Gemini AI with proper system prompt
         
         Args:
             phone_number: User's phone number
@@ -712,6 +712,7 @@ Type "yes" to confirm or provide corrections."""
         try:
             import google.generativeai as genai
             import os
+            from system_prompt_config import get_system_prompt
             
             # Get API key
             api_key = os.getenv("Google_api")
@@ -720,29 +721,35 @@ Type "yes" to confirm or provide corrections."""
             
             # Configure Gemini
             genai.configure(api_key=api_key)
-            model_name = os.getenv("google_model", "gemini-2.5-flash")
+            model_name = os.getenv("google_model", "gemini-2.0-flash-exp")
             model = genai.GenerativeModel(model_name)
             
-            # Build conversation context
-            context = "You are a helpful customer service assistant for WatchVine, a watch e-commerce store.\n\n"
-            context += "IMPORTANT: Always respond in Gujarati language (ગુજરાતી).\n\n"
-            context += "Previous conversation:\n"
+            # Get complete system prompt from config
+            system_prompt = get_system_prompt()
             
-            # Add conversation history
-            for msg in conversation_history[-5:]:  # Last 5 messages
+            # Build conversation context
+            context = system_prompt + "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            context += "CONVERSATION HISTORY:\n"
+            
+            # Add conversation history (last 10 messages for better context)
+            for msg in conversation_history[-10:]:
                 role = msg.get('role', 'user')
                 content = msg.get('content', '')
-                context += f"{role.upper()}: {content}\n"
+                if role == 'user':
+                    context += f"USER: {content}\n"
+                else:
+                    context += f"ASSISTANT: {content}\n"
             
-            context += f"\nCurrent message: {user_message}\n\n"
-            context += "Respond in Gujarati language in a friendly and helpful manner. Keep responses short and engaging."
+            context += f"\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            context += f"CURRENT USER MESSAGE: {user_message}\n\n"
+            context += "YOUR RESPONSE (Follow system prompt rules strictly!):"
             
             # Generate response
             response = model.generate_content(
                 context,
                 generation_config=genai.types.GenerationConfig(
                     temperature=0.7,
-                    max_output_tokens=1000  # Increased from 200 to allow complete responses
+                    max_output_tokens=2000
                 )
             )
             
