@@ -394,8 +394,8 @@ Provide only the JSON, no additional text."""
                 }
                 
                 # Extract colors from AI analysis
-                dial_color = ai_details.get('dial_color', '').strip()
-                strap_color = ai_details.get('strap_color', '').strip()
+                dial_color = str(ai_details.get('dial_color', '')).strip()
+                strap_color = str(ai_details.get('strap_color', '')).strip()
                 
                 if dial_color and dial_color.lower() not in ['unknown', 'n/a', 'none']:
                     if dial_color.title() not in enhanced_product['colors']:
@@ -406,8 +406,8 @@ Provide only the JSON, no additional text."""
                         enhanced_product['colors'].append(strap_color.title())
                 
                 # Extract materials from AI analysis
-                strap_material = ai_details.get('strap_material', '').strip()
-                case_material = ai_details.get('case_material', '').strip()
+                strap_material = str(ai_details.get('strap_material', '')).strip()
+                case_material = str(ai_details.get('case_material', '')).strip()
                 
                 if strap_material and strap_material.lower() not in ['unknown', 'n/a', 'none']:
                     if strap_material.title() not in enhanced_product['materials']:
@@ -418,21 +418,25 @@ Provide only the JSON, no additional text."""
                         enhanced_product['materials'].append(case_material.title())
                 
                 # Add watch type to styles
-                watch_type_ai = ai_details.get('watch_type', '').strip()
+                watch_type_ai = str(ai_details.get('watch_type', '')).strip()
                 if watch_type_ai and watch_type_ai.lower() not in ['unknown', 'n/a', 'none']:
                     if watch_type_ai.title() not in enhanced_product['styles']:
                         enhanced_product['styles'].append(watch_type_ai.title())
                 
                 # Update is_automatic from AI if available
-                is_automatic_ai = ai_details.get('is_automatic', '').strip().lower()
-                if is_automatic_ai in ['true', 'yes', '1']:
-                    enhanced_product['is_automatic'] = True
-                elif is_automatic_ai in ['false', 'no', '0']:
-                    enhanced_product['is_automatic'] = False
-                # If AI says automatic, override name-based detection
+                is_automatic_ai = ai_details.get('is_automatic', '')
+                # Handle both boolean and string responses
+                if isinstance(is_automatic_ai, bool):
+                    enhanced_product['is_automatic'] = is_automatic_ai
+                else:
+                    is_automatic_str = str(is_automatic_ai).strip().lower()
+                    if is_automatic_str in ['true', 'yes', '1']:
+                        enhanced_product['is_automatic'] = True
+                    elif is_automatic_str in ['false', 'no', '0']:
+                        enhanced_product['is_automatic'] = False
                 
                 # Update watch_type from AI style category if available
-                watch_style_category = ai_details.get('watch_style_category', '').strip().lower()
+                watch_style_category = str(ai_details.get('watch_style_category', '')).strip().lower()
                 if watch_style_category and watch_style_category not in ['unknown', 'n/a', 'none']:
                     enhanced_product['watch_type'] = watch_style_category
                 
