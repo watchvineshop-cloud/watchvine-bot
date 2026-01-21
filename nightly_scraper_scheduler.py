@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 MONGODB_URI = os.getenv("MONGODB_ATLAS_URI") or os.getenv("MONGODB_URI")
-MONGODB_DB = os.getenv("MONGODB_DB", "watchvine_refined")
+MONGODB_DB = os.getenv("MONGODB_ATLAS_DB") or os.getenv("MONGODB_DB", "watchvine_refined")
 GOOGLE_API_KEY = os.getenv("Google_api")
 
 
