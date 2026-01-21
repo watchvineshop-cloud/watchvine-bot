@@ -1096,15 +1096,40 @@ def scrape_all_products(limit_per_category=None, clear_db=False, specific_catego
         print("🔄 COMPARING WITH DATABASE")
         print("="*80)
         
-        # Extract just the product dicts from tuples (category_key, product_dict)
-        products_only = []
+        # Get all scraped product URLs from all_products (which are tuples of (url, name, cat_key, cat_name))
+        scraped_urls = set()
         for item in all_products:
-            if isinstance(item, tuple):
-                products_only.append(item[1])  # Get product dict from tuple
-            else:
-                products_only.append(item)  # Already a dict
+            if isinstance(item, tuple) and len(item) >= 1:
+                scraped_urls.add(item[0])  # item[0] is the URL
         
-        comparison_result = compare_and_update_database(products_only, products_col)
+        print(f"📊 Scraped {len(scraped_urls)} unique product URLs from website")
+        
+        # Get existing products from database
+        existing_products = list(products_col.find({}, {"url": 1, "name": 1, "_id": 1}))
+        existing_urls = {p["url"]: p for p in existing_products}
+        
+        print(f"📊 Database has {len(existing_urls)} products")
+        
+        # Find products to remove (in DB but not on website - sold out)
+        removed_urls = set(existing_urls.keys()) - scraped_urls
+        
+        if removed_urls:
+            print(f"🗑️  Removing {len(removed_urls)} sold out products...")
+            result = products_col.delete_many({"url": {"$in": list(removed_urls)}})
+            print(f"✅ Removed {result.deleted_count} products")
+        else:
+            print("✅ No sold out products to remove")
+        
+        # Get final count
+        final_count = products_col.count_documents({})
+        
+        comparison_result = {
+            'total_scraped': len(scraped_urls),
+            'total_in_db': len(existing_urls),
+            'new_products': len(scraped_urls - set(existing_urls.keys())),
+            'removed_products': len(removed_urls),
+            'final_count': final_count
+        }
         print(f"\n📊 Update Summary:")
         print(f"   Total Scraped: {comparison_result['total_scraped']}")
         print(f"   Database Before: {comparison_result['total_in_db']}")
