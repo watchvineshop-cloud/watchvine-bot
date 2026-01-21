@@ -467,7 +467,7 @@ def scrape_single_product(product_data):
 
 
 def save_batch_to_db(batch):
-    """Save a batch of products to MongoDB."""
+    """Save a batch of products to MongoDB using upsert to handle duplicates."""
     if not batch:
         return
     
@@ -488,8 +488,22 @@ def save_batch_to_db(batch):
         db = client[DB_NAME]
         products_col = db[COLLECTION_NAME]
         
-        products_col.insert_many(batch, ordered=False)
-        print(f"💾 Saved batch of {len(batch)} products to MongoDB")
+        # Use update_one with upsert to handle duplicates gracefully
+        # This will update existing products or insert new ones
+        updated = 0
+        inserted = 0
+        for product in batch:
+            result = products_col.update_one(
+                {'url': product['url']},  # Match by URL (unique field)
+                {'$set': product},         # Update all fields
+                upsert=True                # Insert if doesn't exist
+            )
+            if result.upserted_id:
+                inserted += 1
+            elif result.modified_count > 0:
+                updated += 1
+        
+        print(f"💾 Batch: {inserted} new, {updated} updated (total {len(batch)} products)")
         
         client.close()
     except Exception as e:
