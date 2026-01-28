@@ -110,7 +110,7 @@ class GeminiVectorSearch:
         try:
             # Use Gemini embedding model
             result = genai.embed_content(
-                model="models/embedding-001",
+                model="models/text-embedding-004",
                 content=text,
                 task_type="retrieval_query"
             )
