@@ -920,7 +920,11 @@ Return ONLY JSON.
         if result.get('tool') != 'find_product':
             return result
         
-        keyword = result.get('keyword', '').strip()
+        # safely handle None or missing keyword
+        keyword = result.get('keyword')
+        if not keyword:
+            keyword = ''
+        keyword = str(keyword).strip()
         
         # List of common brand names to look for (longer names first for priority)
         brand_list = [
