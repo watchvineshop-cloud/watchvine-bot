@@ -345,7 +345,8 @@ def step_5_generate_embeddings():
                 result = genai.embed_content(
                     model="models/gemini-embedding-001",
                     content=embedding_text,
-                    task_type="retrieval_document"
+                    task_type="retrieval_document",
+                    output_dimensionality=768
                 )
                 
                 embedding = result['embedding']

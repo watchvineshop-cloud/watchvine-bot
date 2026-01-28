@@ -112,7 +112,8 @@ class GeminiVectorSearch:
             result = genai.embed_content(
                 model="models/gemini-embedding-001",
                 content=text,
-                task_type="retrieval_query"
+                task_type="retrieval_query",
+                output_dimensionality=768
             )
             return result['embedding']
         except Exception as e:
