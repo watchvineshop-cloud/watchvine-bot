@@ -258,6 +258,40 @@ class GeminiVectorSearch:
             ]
             
             results = list(self.collection.aggregate(pipeline))
+            
+            # --- HYBRID RE-RANKING ---
+            # Boost scores if the query keyword actually appears in Brand or Name
+            # This fixes the issue where "Rolex" vector is similar to "Rado" vector
+            query_lower = query.lower()
+            keywords = query_lower.split()
+            
+            for result in results:
+                # Base vector score (usually 0.6 to 0.9)
+                vector_score = result.get('score', 0)
+                
+                # Keyword boost
+                keyword_score = 0
+                name = result.get('name', '').lower()
+                brand = result.get('brand', '').lower() if result.get('brand') else ''
+                searchable = result.get('searchable_text', '').lower()
+                
+                # Check for exact brand match (High priority)
+                if query_lower in brand:
+                    keyword_score += 0.5  # Huge boost for brand match
+                
+                # Check for keyword occurrences
+                for keyword in keywords:
+                    if keyword in brand:
+                        keyword_score += 0.2
+                    if keyword in name:
+                        keyword_score += 0.1
+                
+                # Combined score
+                result['score'] = vector_score + keyword_score
+            
+            # Re-sort by new hybrid score
+            results.sort(key=lambda x: x.get('score', 0), reverse=True)
+
             return results
             
         except Exception as e:
