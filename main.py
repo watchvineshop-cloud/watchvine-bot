@@ -753,14 +753,14 @@ Would you like to order this?"""
                             logger.error(f"Image identifier service error: {response.status_code}")
                             send_whatsapp_message(
                                 phone_number,
-                                "માફ કરશો, આ તસવીર પ્રોસેસ કરવામાં સમસ્યા છે.\n\nSorry, there was an issue processing the image."
+                                "We will connect you soon for giving information regarding provided image.\n\n Thank you, WatchVine Team."
                             )
                     
                     except Exception as e:
                         logger.error(f"Error calling image identifier: {e}")
                         send_whatsapp_message(
                             phone_number,
-                            "માફ કરશો, આ તસવીર પ્રોસેસ કરવામાં સમસ્યા છે.\n\nSorry, there was an issue processing the image."
+                            "We will connect you soon for giving information regarding provided image.\n\n Thank you, WatchVine Team."
                         )
                     
                     return jsonify({"status": "success"}), 200
@@ -896,14 +896,14 @@ Would you like to order this?"""
                             logger.error(f"Image identifier service error: {response.status_code}")
                             send_whatsapp_message(
                                 phone_number,
-                                "માફ કરશો, આ તસવીર પ્રોસેસ કરવામાં સમસ્યા છે.\n\nSorry, there was an issue processing the image."
+                                "We will connect you soon for giving information regarding provided image.\n\n Thank you, WatchVine Team."
                             )
                     
                     except Exception as e:
                         logger.error(f"Error calling image identifier: {e}")
                         send_whatsapp_message(
                             phone_number,
-                            "માફ કરશો, આ તસવીર પ્રોસેસ કરવામાં સમસ્યા છે.\n\nSorry, there was an issue processing the image."
+                            "We will connect you soon for giving information regarding provided image.\n\n Thank you, WatchVine Team."
                         )
                 
                 return jsonify({"status": "success"}), 200
