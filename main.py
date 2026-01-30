@@ -1156,6 +1156,32 @@ We will contact you soon!
                     send_whatsapp_message(phone_number, confirmation_msg)
                     conversation_manager.save_message(phone_number, "assistant", confirmation_msg)
                     
+                    # --- Send Admin Notification ---
+                    try:
+                        admin_msg = f"""🔔 *NEW WATCHVINE ORDER!* 🔔
+                        
+*Order ID:* {order_id}
+*Status:* CONFIRMED ✅
+
+📦 *Product:* {order_payload.get('product_name')}
+🔗 *URL:* {order_payload.get('product_url')}
+🔢 *Quantity:* {order_payload.get('quantity')}
+
+👤 *Customer:* {order_payload.get('customer_name')}
+📱 *Phone:* {order_payload.get('phone_number')}
+📍 *Address:* {order_payload.get('address')}
+
+Please check Google Sheet for full details."""
+                        
+                        # Clean and send to admin
+                        admin_number = STORE_CONTACT_NUMBER.replace(" ", "").replace("+", "").strip()
+                        send_whatsapp_message(admin_number, admin_msg)
+                        logger.info(f"🔔 Admin notification sent to {admin_number}")
+                        
+                    except Exception as e:
+                        logger.error(f"❌ Failed to send admin notification: {e}")
+                    # -------------------------------
+                    
                     return jsonify({"status": "success", "order_id": order_id}), 200
                 else:
                     logger.error(f"❌ Failed to save order to Google Sheets")

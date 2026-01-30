@@ -1,0 +1,7 @@
+Checking URL: http://72.61.249.204:8080/instance/fetchInstances
+List Instances Status: 200
+Found Instances:
+ - 'watchvine' (Type: <class 'str'>)
+   MATCH FOUND! Attempting test send to 'watchvine'...
+   Send Status: 201
+   Send Response: {"key":{"remoteJid":"919274497524@s.whatsapp.net","fromMe":true,"id":"3EB0EEBABF9C38A4DEEB7D"},"pushName":"Você","message":{"conversation":"Antigravity Debug Test Message"},"messageType":"conversation
