@@ -816,6 +816,13 @@ Return ONLY JSON.
             logger.error("❌ No API Key")
             return {"tool": "ai_chat"}
 
+        # CRITICAL OVERRIDE: Prevent "1", "2", "yes", "okay" from triggering show_more
+        # These are used for Menu Options or Order Confirmation
+        input_clean = user_message.strip().lower()
+        if input_clean in ['1', '2', 'yes', 'okay', 'ha', 'haan', 'ok', 'sure', 'home delivery', 'pickup', 'store pickup']:
+            logger.info(f"🚫 STRICT OVERRIDE: Input '{input_clean}' forced to ai_chat (Preventing show_more)")
+            return {"tool": "ai_chat"}
+
         # EARLY DETECTION: Check if this is a style-only request (no brand mentioned)
         if self._is_style_only_request(user_message):
             logger.warning(f"⚠️ Style-only request detected! User mentioned style but no brand.")
