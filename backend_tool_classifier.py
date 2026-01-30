@@ -180,16 +180,22 @@ TOOLS & OUTPUT RULES:
    - General conversation, questions about delivery/returns
    - User asks general questions ("shop open?", "delivery time?")
    - User asks for categories without specific brand ("show watches", "bags dikhao")
+   - User asks general questions ("shop open?", "delivery time?")
+   - User asks for categories without specific brand ("show watches", "bags dikhao")
    - User is just chatting
+   - User selects numeric options: "1", "2", "3" (e.g. for delivery/pickup options) - CRITICAL
+   - User says "yes", "okay", "ha", "haan" (unless explicit "show more" is added) - CRITICAL
    - Search result pagination is complete ("All products shown")
-   - User says "yes/no/okay" but there's NO pending search context
+
 
 3. show_more
    JSON: {"tool": "show_more"}
    Use when:
    - User wants to see more products from CURRENT search
-   - User says: "yes", "okay", "ha", "show more", "more", "next", "aur dikhao", "હા"
+   - User wants to see more products from CURRENT search
+   - User explicit says: "show more", "more", "next", "aur dikhao", "biji dikhao", "aage dikhao"
    - ONLY if SEARCH INFO shows pending products (sent_count < total_found)
+   - ⛔ NEVER use for: "1", "2", "yes", "okay", "ha" -> These are options/confirmations -> use ai_chat
    - This is for continuing the SAME search, NOT starting a new one
    
 4. find_product
@@ -480,13 +486,21 @@ Input: "contact number?"
 Output: {"tool": "ai_chat"} (AI will answer only phone number)
 
 Input: "yes" (Context: Last search 'rolex watch', sent 10/50)
-Output: {"tool": "show_more"}
+Output: {"tool": "ai_chat"}
+Explanation: "yes" is NOT enough for show_more. User must say "show more" or "next"
 
 Input: "show more" (Context: Last search 'rolex watch', sent 10/50)
 Output: {"tool": "show_more"}
 
 Input: "okay" (Context: Last search 'gucci bag', sent 140/150)
-Output: {"tool": "show_more"}
+Output: {"tool": "ai_chat"}
+Explanation: "okay" is NOT enough for show_more.
+
+Input: "1" (Context: User asking for option 1)
+Output: {"tool": "ai_chat"}
+
+Input: "2" (Context: User asking for option 2)
+Output: {"tool": "ai_chat"}
 
 Input: "ha" (Context: Last search 'fossil watch', sent 5/45)
 Output: {"tool": "show_more"}
